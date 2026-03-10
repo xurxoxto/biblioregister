@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if editing else 'Novo' }} Libro — BiblioRegister{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Panel</a></li>
+<li class="breadcrumb-item"><a href="{{ url_for('book_list') }}">Libros</a></li>
+<li class="breadcrumb-item active">{{ 'Editar' if editing else 'Novo' }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <i class="bi bi-book"></i>
+                {% if editing %}Editar Libro: {{ book.title }}{% else %}Novo Libro{% endif %}
+            </div>
+            <div class="card-body">
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">{{ form.isbn.label.text }}</label>
+                            {{ form.isbn(class="form-control", placeholder="Código") }}
+                            {% for error in form.isbn.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">{{ form.title.label.text }} <span class="text-danger">*</span></label>
+                            {{ form.title(class="form-control") }}
+                            {% for error in form.title.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.author.label.text }}</label>
+                            {{ form.author(class="form-control") }}
+                            {% for error in form.author.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.publisher.label.text }}</label>
+                            {{ form.publisher(class="form-control") }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">{{ form.year.label.text }}</label>
+                            {{ form.year(class="form-control", placeholder="2024") }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">{{ form.cdu.label.text }}</label>
+                            {{ form.cdu(class="form-select") }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">{{ form.category.label.text }}</label>
+                            {{ form.category(class="form-select") }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">{{ form.copies_total.label.text }}</label>
+                            {{ form.copies_total(class="form-control", min=1) }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ form.location.label.text }}</label>
+                            {{ form.location(class="form-control", placeholder="Est. A-3") }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ form.language.label.text }}</label>
+                            {{ form.language(class="form-control") }}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">{{ form.description.label.text }}</label>
+                            {{ form.description(class="form-control", rows=3) }}
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> {{ 'Gardar Cambios' if editing else 'Engadir Libro' }}
+                        </button>
+                        <a href="{{ url_for('book_detail', book_id=book.id) if editing else url_for('book_list') }}"
+                           class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

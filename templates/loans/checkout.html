@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% block title %}Novo Préstamo — BiblioRegister{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Panel</a></li>
+<li class="breadcrumb-item"><a href="{{ url_for('loan_list') }}">Préstamos</a></li>
+<li class="breadcrumb-item active">Novo Préstamo</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <i class="bi bi-plus-circle-fill"></i> Novo Préstamo
+            </div>
+            <div class="card-body">
+                <form method="POST" id="checkoutForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="row g-4">
+                        <!-- Book Search -->
+                        <div class="col-md-6">
+                            <h6 class="mb-2" style="color:var(--br-info)">
+                                <i class="bi bi-book"></i> Libro
+                            </h6>
+                            <div class="position-relative">
+                                <input type="text" id="bookSearch" class="form-control"
+                                       placeholder="Buscar por título, autoría ou código..."
+                                       autocomplete="off">
+                                <input type="hidden" name="book_id" id="bookId">
+                                <div id="bookResults" class="autocomplete-results"></div>
+                            </div>
+                            <div id="bookSelected" class="mt-2 d-none">
+                                <div class="checkout-selected book-selected">
+                                    <div>
+                                        <strong id="bookTitle"></strong><br>
+                                        <small id="bookAuthor" class="text-muted"></small>
+                                        <span id="bookAvail" class="badge bg-success ms-2"></span>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-icon btn-outline-danger" onclick="clearBook()">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Student Search -->
+                        <div class="col-md-6">
+                            <h6 class="mb-2" style="color:var(--br-success)">
+                                <i class="bi bi-person-fill"></i> Alumno
+                            </h6>
+                            <div class="position-relative">
+                                <input type="text" id="studentSearch" class="form-control"
+                                       placeholder="Buscar por nome ou nº lector..."
+                                       autocomplete="off">
+                                <input type="hidden" name="student_id" id="studentId">
+                                <div id="studentResults" class="autocomplete-results"></div>
+                            </div>
+                            <div id="studentSelected" class="mt-2 d-none">
+                                <div class="checkout-selected student-selected">
+                                    <div>
+                                        <strong id="studentName"></strong><br>
+                                        <small class="text-muted">
+                                            <span id="studentNia"></span> —
+                                            <span id="studentGrade"></span>
+                                        </small>
+                                        <span id="studentLoans" class="badge ms-2"></span>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-icon btn-outline-danger" onclick="clearStudent()">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dates -->
+                        <div class="col-md-4">
+                            <label class="form-label"><i class="bi bi-calendar-event"></i> Data de recollida</label>
+                            <input type="date" name="borrowed_date" id="borrowedDate" class="form-control"
+                                   value="{{ default_borrowed.strftime('%Y-%m-%d') }}">
+                            <div class="form-text">Día que o alumno leva o libro.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label"><i class="bi bi-calendar-check"></i> Data límite devolución</label>
+                            <input type="date" name="due_date" id="dueDate" class="form-control"
+                                   value="{{ default_due.strftime('%Y-%m-%d') }}">
+                            <div class="form-text">Podes cambiala se necesitas.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Notas (opcional)</label>
+                            <input type="text" name="notes" class="form-control"
+                                   placeholder="Observacións...">
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+                            <i class="bi bi-check-circle-fill"></i> Rexistrar Préstamo
+                        </button>
+                        <a href="{{ url_for('loan_list') }}" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Autocomplete for Books ──────────────────────────────────────
+let bookDebounce;
+const bookSearch = document.getElementById('bookSearch');
+const bookResults = document.getElementById('bookResults');
+
+bookSearch.addEventListener('input', function() {
+    clearTimeout(bookDebounce);
+    const q = this.value.trim();
+    if (q.length < 2) { bookResults.innerHTML = ''; return; }
+    bookDebounce = setTimeout(() => {
+        fetch(`/api/books/search?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(books => {
+                bookResults.innerHTML = books.map(b => `
+                    <div class="autocomplete-item ${!b.is_available ? 'text-muted' : ''}"
+                         onclick="selectBook(${b.id}, '${escapeHtml(b.title)}', '${escapeHtml(b.author)}', ${b.available}, ${b.is_available})">
+                        <strong>${escapeHtml(b.title)}</strong>
+                        <br><small>${escapeHtml(b.author)} ${b.isbn ? '— ' + b.isbn : ''}</small>
+                        ${b.cdu ? '<span class=\"cdu-badge cdu-' + b.cdu + ' ms-1\" style=\"font-size:0.65rem\">' + b.cdu + '</span>' : ''}
+                        <span class="badge ${b.is_available ? 'bg-success' : 'bg-danger'} float-end">
+                            ${b.available} disp.
+                        </span>
+                    </div>
+                `).join('');
+            });
+    }, 300);
+});
+
+function selectBook(id, title, author, avail, isAvailable) {
+    if (!isAvailable) return;
+    document.getElementById('bookId').value = id;
+    document.getElementById('bookTitle').textContent = title;
+    document.getElementById('bookAuthor').textContent = author;
+    document.getElementById('bookAvail').textContent = avail + ' dispoñible(s)';
+    document.getElementById('bookSelected').classList.remove('d-none');
+    bookSearch.classList.add('d-none');
+    bookResults.innerHTML = '';
+    checkReady();
+}
+
+function clearBook() {
+    document.getElementById('bookId').value = '';
+    document.getElementById('bookSelected').classList.add('d-none');
+    bookSearch.classList.remove('d-none');
+    bookSearch.value = '';
+    bookSearch.focus();
+    checkReady();
+}
+
+// ── Autocomplete for Students ───────────────────────────────────
+let studentDebounce;
+const studentSearch = document.getElementById('studentSearch');
+const studentResults = document.getElementById('studentResults');
+
+studentSearch.addEventListener('input', function() {
+    clearTimeout(studentDebounce);
+    const q = this.value.trim();
+    if (q.length < 2) { studentResults.innerHTML = ''; return; }
+    studentDebounce = setTimeout(() => {
+        fetch(`/api/students/search?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(students => {
+                studentResults.innerHTML = students.map(s => `
+                    <div class="autocomplete-item ${!s.can_borrow ? 'text-muted' : ''}"
+                         onclick="selectStudent(${s.id}, '${escapeHtml(s.full_name)}', '${escapeHtml(s.student_id)}', '${escapeHtml(s.grade)}', ${s.active_loans}, ${s.max_loans}, ${s.can_borrow})">
+                        <strong>${escapeHtml(s.full_name)}</strong>
+                        <br><small>${s.student_id} — ${s.grade || ''} ${s.group || ''}</small>
+                        <span class="badge ${s.can_borrow ? 'bg-info' : 'bg-danger'} float-end">
+                            ${s.active_loans}/${s.max_loans}
+                        </span>
+                    </div>
+                `).join('');
+            });
+    }, 300);
+});
+
+function selectStudent(id, name, nia, grade, activeLoans, maxLoans, canBorrow) {
+    if (!canBorrow) return;
+    document.getElementById('studentId').value = id;
+    document.getElementById('studentName').textContent = name;
+    document.getElementById('studentNia').textContent = nia;
+    document.getElementById('studentGrade').textContent = grade;
+    const badge = document.getElementById('studentLoans');
+    badge.textContent = activeLoans + '/' + maxLoans + ' préstamos';
+    badge.className = 'badge ms-2 ' + (activeLoans < maxLoans ? 'bg-info' : 'bg-danger');
+    document.getElementById('studentSelected').classList.remove('d-none');
+    studentSearch.classList.add('d-none');
+    studentResults.innerHTML = '';
+    checkReady();
+}
+
+function clearStudent() {
+    document.getElementById('studentId').value = '';
+    document.getElementById('studentSelected').classList.add('d-none');
+    studentSearch.classList.remove('d-none');
+    studentSearch.value = '';
+    studentSearch.focus();
+    checkReady();
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
+function checkReady() {
+    const ready = document.getElementById('bookId').value && document.getElementById('studentId').value;
+    document.getElementById('submitBtn').disabled = !ready;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML.replace(/'/g, "\\'");
+}
+
+document.addEventListener('click', function(e) {
+    if (!bookSearch.contains(e.target) && !bookResults.contains(e.target)) bookResults.innerHTML = '';
+    if (!studentSearch.contains(e.target) && !studentResults.contains(e.target)) studentResults.innerHTML = '';
+});
+
+// Pre-fill from URL params
+const params = new URLSearchParams(window.location.search);
+if (params.get('book')) {
+    fetch(`/api/books/search?q=${params.get('book')}`)
+        .then(r => r.json())
+        .then(books => { if (books.length) selectBook(books[0].id, books[0].title, books[0].author, books[0].available, books[0].is_available); });
+}
+
+// Auto-calculate due date when borrowed date changes
+const borrowedInput = document.getElementById('borrowedDate');
+const dueInput = document.getElementById('dueDate');
+const loanDays = {{ config.DEFAULT_LOAN_DAYS }};
+borrowedInput.addEventListener('change', function() {
+    const d = new Date(this.value);
+    if (!isNaN(d.getTime())) {
+        d.setDate(d.getDate() + loanDays);
+        dueInput.value = d.toISOString().slice(0, 10);
+    }
+});
+</script>
+{% endblock %}

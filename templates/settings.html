@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Configuración — BiblioRegister{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Panel</a></li>
+<li class="breadcrumb-item active">Configuración</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h4><i class="bi bi-gear-fill"></i> Configuración</h4>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-7 col-xl-6">
+        <div class="card shadow-sm">
+            <div class="card-header"><i class="bi bi-sliders2"></i> Parámetros da Biblioteca</div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('settings') }}">
+                    {{ form.hidden_tag() }}
+
+                    <!-- Max Loans -->
+                    <div class="mb-4">
+                        <label for="{{ form.max_loans_per_student.id }}" class="form-label fw-semibold">
+                            <i class="bi bi-people"></i> {{ form.max_loans_per_student.label.text }}
+                        </label>
+                        {{ form.max_loans_per_student(class="form-control", min=1, max=20) }}
+                        <div class="form-text">Número máximo de libros que un alumno pode ter prestados.</div>
+                        {% for error in form.max_loans_per_student.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Default Loan Days -->
+                    <div class="mb-4">
+                        <label for="{{ form.default_loan_days.id }}" class="form-label fw-semibold">
+                            <i class="bi bi-calendar3"></i> {{ form.default_loan_days.label.text }}
+                        </label>
+                        {{ form.default_loan_days(class="form-control", min=1, max=90) }}
+                        <div class="form-text">Días de préstamo por defecto ao realizar un novo préstamo.</div>
+                        {% for error in form.default_loan_days.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Max Renewals -->
+                    <div class="mb-4">
+                        <label for="{{ form.max_renewals.id }}" class="form-label fw-semibold">
+                            <i class="bi bi-arrow-repeat"></i> {{ form.max_renewals.label.text }}
+                        </label>
+                        {{ form.max_renewals(class="form-control", min=0, max=10) }}
+                        <div class="form-text">Cantas veces se pode renovar un préstamo.</div>
+                        {% for error in form.max_renewals.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                            <i class="bi bi-x-lg"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> Gardar Cambios
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="card shadow-sm mt-4" style="border-left: 3px solid var(--br-danger);">
+            <div class="card-header text-danger">
+                <i class="bi bi-exclamation-octagon-fill"></i> Zona Perigosa
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    Accións irreversibles. Asegúrate de saber o que fas.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{{ url_for('reset_db') }}"
+                       class="btn btn-outline-danger btn-sm"
+                       onclick="return confirm('ATENCIÓN: Isto borrará TODOS os datos. ¿Continuar?');">
+                        <i class="bi bi-trash3"></i> Resetear Base de Datos
+                    </a>
+                    <a href="{{ url_for('reimport_data') }}"
+                       class="btn btn-outline-warning btn-sm"
+                       onclick="return confirm('Isto reimportará todos os datos desde o ficheiro orixinal. ¿Continuar?');">
+                        <i class="bi bi-arrow-clockwise"></i> Reimportar Datos
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Database (will be created on startup)
+*.db
+*.sqlite3
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Firebase config (not needed inside container)
+firebase.json
+.firebaserc
+.firebase/
+
+# Docs
+README.md
+LICENSE
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Seed data (optional — remove this line if you want seed_data.py in prod)
+# seed_data.py

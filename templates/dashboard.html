@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Panel — BiblioRegister{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Panel</li>{% endblock %}
+
+{% block content %}
+<!-- Stat Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card stat-books shadow-sm h-100">
+            <div class="card-body position-relative">
+                <div class="stat-label">Libros</div>
+                <div class="stat-value">{{ total_books }}</div>
+                <div class="stat-icon"><i class="bi bi-book"></i></div>
+            </div>
+            <a href="{{ url_for('book_list') }}" class="card-footer text-decoration-none text-primary small">
+                Ver catálogo <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card stat-students shadow-sm h-100">
+            <div class="card-body position-relative">
+                <div class="stat-label">Alumnos</div>
+                <div class="stat-value">{{ total_students }}</div>
+                <div class="stat-icon"><i class="bi bi-people"></i></div>
+            </div>
+            <a href="{{ url_for('student_list') }}" class="card-footer text-decoration-none text-success small">
+                Ver alumnado <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card stat-loans shadow-sm h-100">
+            <div class="card-body position-relative">
+                <div class="stat-label">Préstamos Activos</div>
+                <div class="stat-value">{{ active_loans }}</div>
+                <div class="stat-icon"><i class="bi bi-arrow-left-right"></i></div>
+            </div>
+            <a href="{{ url_for('loan_list', status='active') }}" class="card-footer text-decoration-none text-info small">
+                Ver activos <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card stat-overdue shadow-sm h-100">
+            <div class="card-body position-relative">
+                <div class="stat-label">Pendentes</div>
+                <div class="stat-value">{{ overdue_loans }}</div>
+                <div class="stat-icon"><i class="bi bi-clock"></i></div>
+            </div>
+            <a href="{{ url_for('loan_list', status='overdue') }}" class="card-footer text-decoration-none text-warning small">
+                Ver pendentes <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body py-3">
+        <div class="quick-actions">
+            <a href="{{ url_for('loan_checkout') }}" class="quick-action-btn primary">
+                <i class="bi bi-plus-circle-fill"></i> Novo Préstamo
+            </a>
+            <a href="{{ url_for('book_new') }}" class="quick-action-btn accent">
+                <i class="bi bi-book"></i> Engadir Libro
+            </a>
+            <a href="{{ url_for('student_new') }}" class="btn btn-outline-success">
+                <i class="bi bi-person-plus-fill"></i> Engadir Alumno
+            </a>
+            <a href="{{ url_for('reports') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-bar-chart-fill"></i> Informes
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- CDU Distribution -->
+    {% if cdu_distribution %}
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header">
+                <i class="bi bi-bookmarks-fill"></i> Distribución CDU
+            </div>
+            <div class="card-body">
+                {% set max_cdu = cdu_distribution|map(attribute=1)|max %}
+                {% for cdu_code, count in cdu_distribution %}
+                <div class="cdu-mini-bar">
+                    <div class="bar-label">{{ cdu_labels.get(cdu_code, cdu_code) }}</div>
+                    <div class="bar-track">
+                        <div class="bar-fill cdu-{{ cdu_code }}"
+                             style="width:{{ (count / max_cdu * 100)|int }}%">
+                            {{ count }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Loans -->
+    <div class="col-lg-{{ '8' if cdu_distribution else '12' }}">
+        <div class="card shadow-sm h-100">
+            <div class="card-header">
+                <i class="bi bi-clock-history"></i> Últimos Préstamos
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Libro</th>
+                                <th>Alumno</th>
+                                <th>Vencemento</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for loan in recent_loans %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('book_detail', book_id=loan.book.id) }}">
+                                        {{ loan.book.title|truncate(30) }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('student_detail', student_id=loan.student.id) }}">
+                                        {{ loan.student.full_name }}
+                                    </a>
+                                </td>
+                                <td><small>{{ loan.due_date.strftime('%d/%m/%Y') }}</small></td>
+                                <td>
+                                    {% if loan.is_overdue %}
+                                        <span class="badge bg-warning text-dark">Fóra de prazo</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Activo</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% if not recent_loans %}
+                            <tr>
+                                <td colspan="4" class="empty-state">
+                                    <i class="bi bi-inbox"></i>
+                                    <p>Non hai préstamos activos</p>
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

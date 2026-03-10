@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Informes — BiblioRegister{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Panel</a></li>
+<li class="breadcrumb-item active">Informes</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h4><i class="bi bi-bar-chart-fill"></i> Informes e Estatísticas</h4>
+</div>
+
+<div class="row g-4">
+    <!-- CDU Distribution Chart -->
+    {% if cdu_distribution %}
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header">
+                <i class="bi bi-bookmarks-fill"></i> Distribución por CDU
+            </div>
+            <div class="card-body">
+                <canvas id="cduChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Monthly Chart -->
+    <div class="col-lg-{{ '6' if cdu_distribution else '12' }}">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><i class="bi bi-graph-up"></i> Préstamos por Mes</div>
+            <div class="card-body">
+                {% if monthly %}
+                <canvas id="monthlyChart" height="250"></canvas>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-graph-up"></i>
+                    <p>Sen datos de préstamos</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Overdue Students -->
+    {% if overdue_students %}
+    <div class="col-12">
+        <div class="card shadow-sm" style="border-left: 3px solid var(--br-danger);">
+            <div class="card-header">
+                <i class="bi bi-clock" style="color:var(--br-warning)"></i>
+                Alumnos con Préstamos Pendentes
+                <span class="badge bg-warning text-dark ms-auto">{{ overdue_students|length }}</span>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr><th>Alumno</th><th>Nº Lector</th><th>Curso</th><th class="text-center">Pendentes</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        {% for student, count in overdue_students %}
+                        <tr>
+                            <td><a href="{{ url_for('student_detail', student_id=student.id) }}">{{ student.full_name }}</a></td>
+                            <td><code>{{ student.student_id }}</code></td>
+                            <td>{{ student.grade or '' }}</td>
+                            <td class="text-center"><span class="badge bg-warning text-dark">{{ count }}</span></td>
+                            <td>
+                                <a href="{{ url_for('loan_list', student_id=student.id, status='overdue') }}"
+                                   class="btn btn-sm btn-outline-danger">Ver</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Most Borrowed Books -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><i class="bi bi-trophy-fill"></i> Libros Máis Prestados</div>
+            <div class="card-body p-0">
+                <table class="table table-hover table-sm mb-0">
+                    <thead>
+                        <tr><th>#</th><th>Libro</th><th>Autoría</th><th class="text-center">Préstamos</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for book, count in popular %}
+                        <tr>
+                            <td><span class="badge bg-secondary">{{ loop.index }}</span></td>
+                            <td>
+                                <a href="{{ url_for('book_detail', book_id=book.id) }}">{{ book.title|truncate(28) }}</a>
+                                {% if book.cdu %}
+                                <span class="cdu-badge cdu-{{ book.cdu }}" style="font-size:0.6rem">{{ book.cdu }}</span>
+                                {% endif %}
+                            </td>
+                            <td><small class="text-muted">{{ (book.author or '')|truncate(20) }}</small></td>
+                            <td class="text-center"><span class="badge bg-primary">{{ count }}</span></td>
+                        </tr>
+                        {% endfor %}
+                        {% if not popular %}
+                        <tr><td colspan="4" class="text-center text-muted py-3">Sen datos</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Most Active Readers -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><i class="bi bi-star-fill"></i> Lectores Máis Activos</div>
+            <div class="card-body p-0">
+                <table class="table table-hover table-sm mb-0">
+                    <thead>
+                        <tr><th>#</th><th>Alumno</th><th>Curso</th><th class="text-center">Préstamos</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for student, count in readers %}
+                        <tr>
+                            <td><span class="badge bg-secondary">{{ loop.index }}</span></td>
+                            <td><a href="{{ url_for('student_detail', student_id=student.id) }}">{{ student.full_name }}</a></td>
+                            <td><small>{{ student.grade or '' }}</small></td>
+                            <td class="text-center"><span class="badge bg-success">{{ count }}</span></td>
+                        </tr>
+                        {% endfor %}
+                        {% if not readers %}
+                        <tr><td colspan="4" class="text-center text-muted py-3">Sen datos</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// CDU Chart.js Doughnut
+{% if cdu_distribution %}
+const cduColors = {{ cdu_colors | tojson }};
+const cduLabels = {{ cdu_labels | tojson }};
+const cduData = [
+    {% for code, count in cdu_distribution %}
+    { code: "{{ code }}", count: {{ count }}, label: cduLabels["{{ code }}"] || "{{ code }}" },
+    {% endfor %}
+];
+
+new Chart(document.getElementById('cduChart'), {
+    type: 'doughnut',
+    data: {
+        labels: cduData.map(d => d.label),
+        datasets: [{
+            data: cduData.map(d => d.count),
+            backgroundColor: cduData.map(d => cduColors[d.code] || '#6c757d'),
+            borderWidth: 2,
+            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--br-bg-card').trim() || '#fff',
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'right',
+                labels: { font: { size: 11, family: 'Inter' }, padding: 8, usePointStyle: true }
+            }
+        },
+        cutout: '55%',
+    }
+});
+{% endif %}
+
+// Monthly Chart.js Bar
+{% if monthly %}
+const monthlyData = [
+    {% for month, count in monthly %}
+    { month: "{{ month }}", count: {{ count }} },
+    {% endfor %}
+];
+
+new Chart(document.getElementById('monthlyChart'), {
+    type: 'bar',
+    data: {
+        labels: monthlyData.map(d => d.month),
+        datasets: [{
+            label: 'Préstamos',
+            data: monthlyData.map(d => d.count),
+            backgroundColor: 'rgba(44, 62, 107, 0.7)',
+            borderColor: 'rgba(44, 62, 107, 1)',
+            borderWidth: 1,
+            borderRadius: 6,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: { stepSize: 1, font: { size: 11, family: 'Inter' } },
+                grid: { color: 'rgba(0,0,0,0.05)' }
+            },
+            x: {
+                ticks: { font: { size: 10, family: 'Inter' } },
+                grid: { display: false }
+            }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}{{ student.full_name }} — BiblioRegister{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Panel</a></li>
+<li class="breadcrumb-item"><a href="{{ url_for('student_list') }}">Alumnado</a></li>
+<li class="breadcrumb-item active">{{ student.full_name }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Student Info -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-person-fill"></i> Información</span>
+                <div class="d-flex gap-1">
+                    <a href="{{ url_for('student_edit', student_id=student.id) }}" class="btn btn-sm btn-icon btn-outline-primary" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <form method="POST" action="{{ url_for('student_delete', student_id=student.id) }}"
+                          onsubmit="return confirm('Eliminar este alumno?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-sm btn-icon btn-outline-danger" title="Eliminar"><i class="bi bi-trash"></i></button>
+                    </form>
+                </div>
+            </div>
+            <div class="card-body text-center pb-2">
+                <div class="avatar-initials mx-auto mb-2"
+                     style="width:64px;height:64px;font-size:1.3rem;
+                            background:linear-gradient(135deg,
+                            hsl({{ (student.first_name|length * 37) % 360 }},55%,50%),
+                            hsl({{ (student.first_name|length * 37 + 30) % 360 }},55%,60%));">
+                    {{ student.first_name[0] }}{{ student.last_name[0] if student.last_name else '' }}
+                </div>
+                <h5 class="mb-0">{{ student.full_name }}</h5>
+                <small class="text-muted">{{ student.grade or '' }}</small>
+            </div>
+            <div class="card-body pt-0">
+                <table class="table table-borderless info-table mb-0">
+                    <tr><th>Nº Lector</th><td><code>{{ student.student_id }}</code></td></tr>
+                    {% if student.email %}<tr><th>Email</th><td>{{ student.email }}</td></tr>{% endif %}
+                    {% if student.phone %}<tr><th>Teléfono</th><td>{{ student.phone }}</td></tr>{% endif %}
+                    {% if student.group_name %}<tr><th>Grupo</th><td>{{ student.group_name }}</td></tr>{% endif %}
+                    <tr>
+                        <th>Estado</th>
+                        <td>
+                            {% if student.is_active %}
+                                <span class="badge bg-success">Activo</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactivo</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Préstamos</th>
+                        <td>
+                            {% set ratio = student.active_loans_count / student.effective_max_loans if student.effective_max_loans else 0 %}
+                            <span class="badge badge-loan-count {% if ratio >= 1 %}bg-danger{% elif ratio > 0 %}bg-info{% else %}bg-secondary{% endif %}">
+                                {{ student.active_loans_count }} / {{ student.effective_max_loans }}
+                            </span>
+                            {% if student.max_loans is not none %}
+                                <small class="text-muted">(personalizado)</small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Libros lidos</th>
+                        <td>
+                            <span class="badge bg-primary">{{ student.total_books_read }}</span>
+                            {% if student.ratings.count() > 0 %}
+                            <small class="text-muted ms-1">
+                                ({{ student.ratings.count() }} valorados)
+                            </small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+                {% if student.notes %}
+                <hr>
+                <p class="text-muted small mb-0">{{ student.notes }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if student.is_active and student.can_borrow(config.MAX_LOANS_PER_STUDENT) %}
+        <div class="mt-3">
+            <a href="{{ url_for('loan_checkout') }}?student={{ student.id }}" class="btn btn-primary w-100">
+                <i class="bi bi-plus-circle-fill"></i> Novo Préstamo
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Loans -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header">
+                <i class="bi bi-arrow-left-right"></i> Préstamos Activos ({{ active_loans|length }})
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover table-sm mb-0">
+                    <thead>
+                        <tr><th>Libro</th><th>Data</th><th>Vencemento</th><th>Renov.</th><th>Estado</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        {% for loan in active_loans %}
+                        <tr class="{{ 'row-overdue' if loan.is_overdue }}">
+                            <td>
+                                <a href="{{ url_for('book_detail', book_id=loan.book.id) }}">
+                                    {{ loan.book.title|truncate(35) }}
+                                </a>
+                            </td>
+                            <td><small>{{ loan.borrowed_at.strftime('%d/%m/%Y') }}</small></td>
+                            <td><small>{{ loan.due_date.strftime('%d/%m/%Y') }}</small></td>
+                            <td>{{ loan.renewals }}</td>
+                            <td>
+                                {% if loan.is_overdue %}
+                                    <span class="badge bg-warning text-dark">{{ loan.days_overdue }}d fóra de prazo</span>
+                                {% else %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    <form method="POST" action="{{ url_for('loan_return', loan_id=loan.id) }}">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="next" value="{{ url_for('student_detail', student_id=student.id) }}">
+                                        <button class="btn btn-sm btn-icon btn-success" title="Devolver"><i class="bi bi-check-lg"></i></button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('loan_renew', loan_id=loan.id) }}">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="next" value="{{ url_for('student_detail', student_id=student.id) }}">
+                                        <button class="btn btn-sm btn-icon btn-outline-info" title="Renovar"><i class="bi bi-arrow-clockwise"></i></button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not active_loans %}
+                        <tr><td colspan="6" class="text-center text-muted py-3">Sen préstamos activos</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if history %}
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <i class="bi bi-book-half"></i> Historial de Lectura ({{ history|length }} libros)
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0">
+                    <thead>
+                        <tr><th>Libro</th><th>Recollida</th><th>Devolución</th><th>Valoración</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for loan in history %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('book_detail', book_id=loan.book.id) }}">{{ loan.book.title|truncate(35) }}</a>
+                                {% if loan.book.cdu %}
+                                <span class="cdu-badge cdu-{{ loan.book.cdu }}" style="font-size:0.6rem">{{ loan.book.cdu }}</span>
+                                {% endif %}
+                            </td>
+                            <td><small>{{ loan.borrowed_at.strftime('%d/%m/%Y') }}</small></td>
+                            <td><small>{{ loan.returned_at.strftime('%d/%m/%Y') }}</small></td>
+                            <td>
+                                {% if loan.book.id in student_ratings %}
+                                    <span class="stars-display stars-display-sm">
+                                        {% for i in range(1, 6) %}
+                                            <i class="bi bi-star{{ '-fill' if i <= student_ratings[loan.book.id] else '' }}"></i>
+                                        {% endfor %}
+                                    </span>
+                                {% else %}
+                                    <form method="POST"
+                                          action="{{ url_for('rate_book_quick', book_id=loan.book.id, student_id=student.id) }}"
+                                          class="d-inline quick-rate-form">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="next" value="{{ url_for('student_detail', student_id=student.id) }}">
+                                        <input type="hidden" name="stars" class="quick-rate-value" value="">
+                                        <div class="quick-rate">
+                                            {% for i in range(1, 6) %}
+                                            <button type="button" class="quick-rate-star" data-stars="{{ i }}" title="{{ i }} ⭐">
+                                                <i class="bi bi-star"></i>
+                                            </button>
+                                            {% endfor %}
+                                        </div>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Quick-rate stars in history table
+document.querySelectorAll('.quick-rate-form').forEach(form => {
+    const stars = form.querySelectorAll('.quick-rate-star');
+    const input = form.querySelector('.quick-rate-value');
+
+    stars.forEach(btn => {
+        btn.addEventListener('mouseenter', () => {
+            const n = +btn.dataset.stars;
+            stars.forEach((s, i) => {
+                s.querySelector('i').className = i < n ? 'bi bi-star-fill' : 'bi bi-star';
+                if (i < n) s.classList.add('filled'); else s.classList.remove('filled');
+            });
+        });
+        btn.addEventListener('mouseleave', () => {
+            stars.forEach(s => {
+                s.querySelector('i').className = 'bi bi-star';
+                s.classList.remove('filled');
+            });
+        });
+        btn.addEventListener('click', () => {
+            input.value = btn.dataset.stars;
+            form.submit();
+        });
+    });
+});
+</script>
+{% endblock %}

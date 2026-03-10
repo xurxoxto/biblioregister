@@ -1,0 +1,26 @@
+{
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/static/**",
+        "run": {
+          "serviceId": "biblioregister",
+          "region": "europe-southwest1"
+        }
+      },
+      {
+        "source": "**",
+        "run": {
+          "serviceId": "biblioregister",
+          "region": "europe-southwest1"
+        }
+      }
+    ]
+  }
+}

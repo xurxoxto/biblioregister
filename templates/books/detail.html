@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}{{ book.title }} — BiblioRegister{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Panel</a></li>
+<li class="breadcrumb-item"><a href="{{ url_for('book_list') }}">Libros</a></li>
+<li class="breadcrumb-item active">{{ book.title|truncate(40) }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Book Info -->
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-book"></i> Información</span>
+                <div class="d-flex gap-1">
+                    <a href="{{ url_for('book_edit', book_id=book.id) }}" class="btn btn-sm btn-icon btn-outline-primary" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <form method="POST" action="{{ url_for('book_delete', book_id=book.id) }}"
+                          onsubmit="return confirm('Eliminar este libro?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-sm btn-icon btn-outline-danger" title="Eliminar"><i class="bi bi-trash"></i></button>
+                    </form>
+                </div>
+            </div>
+            <div class="card-body">
+                <h5 class="mb-2">{{ book.title }}</h5>
+
+                {% if book.avg_rating %}
+                <div class="mb-3">
+                    <span class="stars-display">
+                        {% for i in range(1, 6) %}
+                            <i class="bi bi-star{{ '-fill' if i <= book.avg_rating|round(0,'floor')|int else '' }}"></i>
+                        {% endfor %}
+                    </span>
+                    <strong class="ms-1">{{ book.avg_rating }}</strong>
+                    <small class="text-muted">({{ book.rating_count }} valoración{{ 'es' if book.rating_count != 1 else '' }})</small>
+                </div>
+                {% endif %}
+
+                <table class="table table-borderless info-table mb-0">
+                    <tr><th>Autoría</th><td>{{ book.author or '—' }}</td></tr>
+                    {% if book.isbn %}<tr><th>Código</th><td><code>{{ book.isbn }}</code></td></tr>{% endif %}
+                    {% if book.cdu %}
+                    <tr>
+                        <th>CDU</th>
+                        <td>
+                            <span class="cdu-badge cdu-badge-lg cdu-{{ book.cdu }}">
+                                <span class="cdu-code">{{ book.cdu }}</span>
+                                {{ cdu_labels.get(book.cdu, '') }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% if book.category %}<tr><th>Categoría</th><td><span class="badge bg-secondary">{{ book.category }}</span></td></tr>{% endif %}
+                    {% if book.publisher %}<tr><th>Editorial</th><td>{{ book.publisher }}</td></tr>{% endif %}
+                    {% if book.year %}<tr><th>Ano</th><td>{{ book.year }}</td></tr>{% endif %}
+                    {% if book.location %}<tr><th>Ubicación</th><td>{{ book.location }}</td></tr>{% endif %}
+                    <tr><th>Idioma</th><td>{{ book.language }}</td></tr>
+                    <tr>
+                        <th>Exemplares</th>
+                        <td>
+                            {{ book.copies_total }} total —
+                            {% if book.is_available %}
+                                <span class="text-success fw-bold">{{ book.copies_available }} dispoñible(s)</span>
+                            {% else %}
+                                <span class="text-danger fw-bold">Non dispoñible</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+                {% if book.description %}
+                <hr>
+                <p class="text-muted small mb-0">{{ book.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Loans + History -->
+    <div class="col-lg-7">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-arrow-left-right"></i> Préstamos Activos ({{ active_loans|length }})</span>
+                {% if book.is_available %}
+                <a href="{{ url_for('loan_checkout') }}?book={{ book.id }}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-plus"></i> Prestar
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover table-sm mb-0">
+                    <thead>
+                        <tr><th>Alumno</th><th>Data</th><th>Vencemento</th><th>Estado</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        {% for loan in active_loans %}
+                        <tr class="{{ 'row-overdue' if loan.is_overdue }}">
+                            <td>
+                                <a href="{{ url_for('student_detail', student_id=loan.student.id) }}">
+                                    {{ loan.student.full_name }}
+                                </a>
+                            </td>
+                            <td><small>{{ loan.borrowed_at.strftime('%d/%m/%Y') }}</small></td>
+                            <td><small>{{ loan.due_date.strftime('%d/%m/%Y') }}</small></td>
+                            <td>
+                                {% if loan.is_overdue %}
+                                    <span class="badge bg-warning text-dark">{{ loan.days_overdue }}d fóra de prazo</span>
+                                {% else %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    <form method="POST" action="{{ url_for('loan_return', loan_id=loan.id) }}">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="next" value="{{ url_for('book_detail', book_id=book.id) }}">
+                                        <button class="btn btn-sm btn-icon btn-success" title="Devolver"><i class="bi bi-check-lg"></i></button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('loan_renew', loan_id=loan.id) }}">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="next" value="{{ url_for('book_detail', book_id=book.id) }}">
+                                        <button class="btn btn-sm btn-icon btn-outline-info" title="Renovar"><i class="bi bi-arrow-clockwise"></i></button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not active_loans %}
+                        <tr><td colspan="5" class="text-center text-muted py-3">Sen préstamos activos</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if history %}
+        <div class="card shadow-sm mb-3">
+            <div class="card-header"><i class="bi bi-clock-history"></i> Historial</div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0">
+                    <thead>
+                        <tr><th>Alumno</th><th>Préstamo</th><th>Devolución</th><th>Valoración</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for loan in history %}
+                        <tr>
+                            <td><a href="{{ url_for('student_detail', student_id=loan.student.id) }}">{{ loan.student.full_name }}</a></td>
+                            <td><small>{{ loan.borrowed_at.strftime('%d/%m/%Y') }}</small></td>
+                            <td><small>{{ loan.returned_at.strftime('%d/%m/%Y') }}</small></td>
+                            <td>
+                                {% set r = None %}
+                                {% for rating in book_ratings if rating.student_id == loan.student_id %}
+                                    {% set r = rating %}
+                                {% endfor %}
+                                {% if r %}
+                                    <span class="stars-display stars-display-sm">
+                                        {% for i in range(1, 6) %}
+                                            <i class="bi bi-star{{ '-fill' if i <= r.stars else '' }}"></i>
+                                        {% endfor %}
+                                    </span>
+                                {% else %}
+                                    <small class="text-muted">—</small>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Valoracións -->
+        {% if book_ratings %}
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <i class="bi bi-star-fill" style="color:var(--br-accent)"></i>
+                Valoracións ({{ book_ratings|length }})
+                {% if book.avg_rating %}
+                — Media: <strong>{{ book.avg_rating }}</strong> ⭐
+                {% endif %}
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0">
+                    <thead><tr><th>Alumno</th><th>Valoración</th><th>Data</th></tr></thead>
+                    <tbody>
+                        {% for r in book_ratings %}
+                        <tr>
+                            <td><a href="{{ url_for('student_detail', student_id=r.student.id) }}">{{ r.student.full_name }}</a></td>
+                            <td>
+                                <span class="stars-display stars-display-sm">
+                                    {% for i in range(1, 6) %}
+                                        <i class="bi bi-star{{ '-fill' if i <= r.stars else '' }}"></i>
+                                    {% endfor %}
+                                </span>
+                            </td>
+                            <td><small>{{ r.created_at.strftime('%d/%m/%Y') }}</small></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Préstamos — BiblioRegister{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Panel</a></li>
+<li class="breadcrumb-item active">Préstamos</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h4><i class="bi bi-arrow-left-right"></i> Préstamos</h4>
+    <a href="{{ url_for('loan_checkout') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle-fill"></i> Novo Préstamo
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="filter-bar">
+    <form method="GET" class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label>Buscar</label>
+            <input type="text" name="q" class="form-control form-control-sm"
+                   placeholder="Libro, alumno..." value="{{ q }}">
+        </div>
+        <div class="col-md-2">
+            <label>Estado</label>
+            <select name="status" class="form-select form-select-sm">
+                <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Activos</option>
+                <option value="overdue" {% if status_filter == 'overdue' %}selected{% endif %}>Pendentes</option>
+                <option value="returned" {% if status_filter == 'returned' %}selected{% endif %}>Devoltos</option>
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label>Curso</label>
+            <select name="grade" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                {% for g in grades %}
+                <option value="{{ g }}" {% if grade_filter == g %}selected{% endif %}>{{ g }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label>ID Alumno</label>
+            <input type="text" name="student_id" class="form-control form-control-sm"
+                   placeholder="ID" value="{{ student_filter }}">
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-sm btn-primary">
+                <i class="bi bi-search"></i> Filtrar
+            </button>
+            <a href="{{ url_for('loan_list') }}" class="btn btn-sm btn-outline-secondary">Limpar</a>
+        </div>
+    </form>
+</div>
+
+<!-- Loans Table -->
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Libro</th>
+                    <th>Alumno</th>
+                    <th>Curso</th>
+                    <th><i class="bi bi-calendar-event"></i> Recollida</th>
+                    <th><i class="bi bi-calendar-check"></i> Límite</th>
+                    <th>Renov.</th>
+                    <th>Estado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loan in loans %}
+                <tr class="{{ 'row-overdue' if loan.is_overdue }}">
+                    <td>
+                        <a href="{{ url_for('book_detail', book_id=loan.book.id) }}">
+                            {{ loan.book.title|truncate(32) }}
+                        </a>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('student_detail', student_id=loan.student.id) }}">
+                            {{ loan.student.full_name }}
+                        </a>
+                        <br><small class="text-muted">Nº {{ loan.student.student_id }}</small>
+                    </td>
+                    <td>{{ loan.student.grade or '' }}</td>
+                    <td>{{ loan.borrowed_at.strftime('%d/%m/%Y') }}</td>
+                    <td>
+                        {% if loan.is_active %}
+                        <form method="POST" action="{{ url_for('loan_update_due', loan_id=loan.id) }}" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="date" name="due_date" value="{{ loan.due_date.strftime('%Y-%m-%d') }}"
+                                   class="form-control form-control-sm d-inline-block"
+                                   style="width:145px"
+                                   onchange="this.form.submit()">
+                        </form>
+                        {% else %}
+                        {{ loan.due_date.strftime('%d/%m/%Y') }}
+                        {% endif %}
+                    </td>
+                    <td>{{ loan.renewals }}</td>
+                    <td>
+                        {% if loan.returned_at %}
+                            <span class="badge bg-secondary">Devolto {{ loan.returned_at.strftime('%d/%m') }}</span>
+                        {% elif loan.is_overdue %}
+                            <span class="badge bg-warning text-dark">{{ loan.days_overdue }}d fóra de prazo</span>
+                        {% else %}
+                            <span class="badge bg-success">Activo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if loan.is_active %}
+                        <div class="d-flex gap-1">
+                            <form method="POST" action="{{ url_for('loan_return', loan_id=loan.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-sm btn-icon btn-success" title="Devolver">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('loan_renew', loan_id=loan.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-sm btn-icon btn-outline-info" title="Renovar">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not loans %}
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <i class="bi bi-inbox"></i>
+                            <p>Non se atoparon préstamos.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if pagination.pages > 1 %}
+<nav class="mt-3">
+    <ul class="pagination pagination-sm justify-content-center">
+        {% if pagination.has_prev %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('loan_list', page=pagination.prev_num, status=status_filter, q=q, grade=grade_filter) }}">&laquo;</a>
+        </li>
+        {% endif %}
+        {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if p %}
+            <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                <a class="page-link" href="{{ url_for('loan_list', page=p, status=status_filter, q=q, grade=grade_filter) }}">{{ p }}</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% endif %}
+        {% endfor %}
+        {% if pagination.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('loan_list', page=pagination.next_num, status=status_filter, q=q, grade=grade_filter) }}">&raquo;</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}
