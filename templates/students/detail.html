@@ -67,9 +67,9 @@
                         <th>Libros lidos</th>
                         <td>
                             <span class="badge bg-primary">{{ student.total_books_read }}</span>
-                            {% if student.ratings.count() > 0 %}
+                            {% if student.ratings_count > 0 %}
                             <small class="text-muted ms-1">
-                                ({{ student.ratings.count() }} valorados)
+                                ({{ student.ratings_count }} valorados)
                             </small>
                             {% endif %}
                         </td>

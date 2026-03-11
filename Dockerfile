@@ -20,7 +20,7 @@ ENV PORT=8080
 # Run with Gunicorn (production WSGI server)
 CMD exec gunicorn \
     --bind :$PORT \
-    --workers 1 \
+    --workers 2 \
     --threads 4 \
     --timeout 120 \
     "app:create_app()"

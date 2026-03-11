@@ -58,6 +58,9 @@ gcloud run deploy "${SERVICE_NAME}" \
     --min-instances 0 \
     --max-instances 2 \
     --set-env-vars "SECRET_KEY=$(openssl rand -hex 32)" \
+    --set-env-vars "FIREBASE_PROJECT_ID=${PROJECT_ID}" \
+    --set-env-vars "ADMIN_USERNAME=${ADMIN_USERNAME:-admin}" \
+    --set-env-vars "ADMIN_PASSWORD=${ADMIN_PASSWORD:-biblio2025}" \
     --set-env-vars "MAX_LOANS_PER_STUDENT=3" \
     --set-env-vars "DEFAULT_LOAN_DAYS=14" \
     --set-env-vars "MAX_RENEWALS=2"

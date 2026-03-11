@@ -9,7 +9,7 @@ import sys
 from datetime import datetime
 from numbers_parser import Document
 from app import create_app
-from models import db, Book, Student, Loan
+from models import Book, Student, Loan, drop_data, get_db
 
 
 DEFAULT_PATH = "/Users/jorgegarcia/Library/Mobile Documents/com~apple~CloudDocs/Downloads/proxecto libros xls.numbers"
@@ -25,10 +25,7 @@ def import_data(filepath=None):
     with app.app_context():
         # ── Borrar datos existentes ──────────────────────────────
         print("\n🗑️  Borrando datos anteriores...")
-        Loan.query.delete()
-        Student.query.delete()
-        Book.query.delete()
-        db.session.commit()
+        drop_data()
 
         # ── 1. Importar ALUMNADO ─────────────────────────────────
         print("\n🎓 Importando alumnado...")
@@ -62,12 +59,10 @@ def import_data(filepath=None):
                 grade=curso_str,
                 is_active=True,
             )
-            db.session.add(student)
-            db.session.flush()  # get the ID
+            student.save()
             students_map[num_lector_str] = student
             student_count += 1
 
-        db.session.commit()
         print(f"   ✅ {student_count} alumnos importados")
 
         # ── 2. Importar LIBROS ───────────────────────────────────
@@ -98,15 +93,13 @@ def import_data(filepath=None):
                 copies_total=1,
                 language="Galego",
             )
-            db.session.add(book)
-            db.session.flush()
+            book.save()
 
             if codigo_str:
                 books_by_code[codigo_str] = book
             books_by_title[titulo_str.lower()] = book
             book_count += 1
 
-        db.session.commit()
         print(f"   ✅ {book_count} libros importados")
 
         # ── 3. Importar PRÉSTAMOS (Rexistro) ─────────────────────
@@ -158,8 +151,7 @@ def import_data(filepath=None):
                     copies_total=1,
                     language="Galego",
                 )
-                db.session.add(book)
-                db.session.flush()
+                book.save()
                 if codigo_str:
                     books_by_code[codigo_str] = book
                 books_by_title[titulo_str.lower()] = book
@@ -184,20 +176,19 @@ def import_data(filepath=None):
                 due_date=due_date,
                 returned_at=returned_at,
             )
-            db.session.add(loan)
+            loan.save()
             loan_count += 1
 
-        db.session.commit()
-
         # ── Resumo ───────────────────────────────────────────────
-        active = Loan.query.filter(Loan.returned_at.is_(None)).count()
-        returned = Loan.query.filter(Loan.returned_at.isnot(None)).count()
+        all_loans = Loan.load_all()
+        active = sum(1 for l in all_loans if l.returned_at is None)
+        returned = sum(1 for l in all_loans if l.returned_at is not None)
 
         print(f"\n{'='*50}")
         print(f"✅ IMPORTACIÓN COMPLETADA")
         print(f"{'='*50}")
         print(f"   🎓 Alumnos:    {student_count}")
-        print(f"   📚 Libros:     {Book.query.count()}")
+        print(f"   📚 Libros:     {Book.count()}")
         print(f"   📋 Préstamos:  {loan_count} ({active} activos, {returned} devueltos)")
         if skipped:
             print(f"   ⚠️  Saltados:  {skipped}")

@@ -72,6 +72,12 @@
         </nav>
 
         <div class="sidebar-footer">
+            {% if current_user.is_authenticated and current_user.is_admin %}
+            <a href="{{ url_for('user_list') }}"
+               class="sidebar-link {% if request.endpoint and 'user' in request.endpoint %}active{% endif %}" style="margin:0;padding:0.45rem 0;">
+                <i class="bi bi-people"></i> Usuarios
+            </a>
+            {% endif %}
             <a href="{{ url_for('settings') }}"
                class="sidebar-link {% if request.endpoint == 'settings' %}active{% endif %}" style="margin:0;padding:0.45rem 0;">
                 <i class="bi bi-gear-fill"></i> Configuración
@@ -95,7 +101,21 @@
                     </ol>
                 </nav>
             </div>
-            <div class="topbar-right"></div>
+            <div class="topbar-right">
+                {% if current_user.is_authenticated %}
+                <div class="d-flex align-items-center gap-2">
+                    <span class="text-muted small d-none d-md-inline">
+                        <i class="bi bi-person-circle me-1"></i>{{ current_user.display_name or current_user.username }}
+                    </span>
+                    <a href="{{ url_for('change_password') }}" class="btn btn-sm btn-outline-secondary" title="Cambiar contraseña">
+                        <i class="bi bi-key"></i>
+                    </a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-danger" title="Cerrar sesión">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </a>
+                </div>
+                {% endif %}
+            </div>
         </header>
 
         <!-- Flash messages -->

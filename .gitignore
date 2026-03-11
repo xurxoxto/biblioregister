@@ -24,6 +24,9 @@ Thumbs.db
 
 # Flask
 instance/
+.env
 
 # Firebase
 .firebase/
+serviceAccountKey.json
+*.json.bak

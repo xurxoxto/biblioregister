@@ -1,8 +1,10 @@
 """
 BiblioRegister – School Library Management System
+Backend powered by Google Cloud Firestore.
 """
 
 from datetime import datetime, date, timedelta
+from collections import Counter
 from flask import (
     Flask,
     render_template,
@@ -13,92 +15,152 @@ from flask import (
     jsonify,
     abort,
 )
-from sqlalchemy import or_, func
 from flask_wtf.csrf import CSRFProtect
+from flask_login import (
+    LoginManager,
+    login_user,
+    logout_user,
+    login_required,
+    current_user,
+)
 from config import Config
-from models import db, Book, Student, Loan, Setting, Rating
-from forms import BookForm, StudentForm, LoanForm, SettingsForm, CDU_COLORS, CDU_LABELS, CDU_CHOICES
+from models import (
+    init_firebase, get_db, drop_all, drop_data, paginate_list,
+    User, Book, Student, Loan, Setting, Rating,
+)
+from forms import (
+    BookForm, StudentForm, LoanForm, SettingsForm,
+    LoginForm, ChangePasswordForm, CreateUserForm,
+    CDU_COLORS, CDU_LABELS, CDU_CHOICES,
+)
 
 csrf = CSRFProtect()
+login_manager = LoginManager()
 
 
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
-    db.init_app(app)
     csrf.init_app(app)
 
+    # Firestore
+    init_firebase(app)
+
+    # Flask-Login
+    login_manager.init_app(app)
+    login_manager.login_view = "login"
+    login_manager.login_message = "Inicia sesión para acceder."
+    login_manager.login_message_category = "warning"
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.get(int(user_id))
+
     # ── Helpers ───────────────────────────────────────────────────
-    def _init_settings(app_ctx):
+    def _init_settings():
         """Load persisted settings on startup."""
         for key in ["MAX_LOANS_PER_STUDENT", "DEFAULT_LOAN_DAYS", "MAX_RENEWALS"]:
-            s = db.session.get(Setting, key)
+            s = Setting.get(key)
             if s:
-                app_ctx.config[key] = int(s.value)
+                app.config[key] = int(s.value)
 
     def _set_setting(key, value):
-        s = db.session.get(Setting, key)
-        if s:
-            s.value = value
-        else:
-            s = Setting(key=key, value=value)
-            db.session.add(s)
-        db.session.commit()
+        Setting.set_value(key, str(value))
 
-    with app.app_context():
-        db.create_all()
-        _init_settings(app)
+    def _create_default_admin():
+        """Create admin user on first run if no users exist."""
+        if User.count() == 0:
+            admin = User(
+                username=app.config.get("ADMIN_USERNAME", "admin"),
+                display_name="Administrador",
+                is_admin=True,
+            )
+            admin.set_password(app.config.get("ADMIN_PASSWORD", "biblio2025"))
+            admin.save()
 
-    # ── Inject CDU data into all templates ────────────────────────
+    # Defer Firestore calls to first request (avoids gRPC startup hang)
+    # _init_settings()
+    # _create_default_admin()
+
+    # ── Require login ─────────────────────────────────────────────
+    _initialized = {"done": False}
+
+    @app.before_request
+    def require_login():
+        # Lazy init: run Firestore queries on first request, not at startup
+        if not _initialized["done"]:
+            _initialized["done"] = True
+            _init_settings()
+            _create_default_admin()
+
+        allowed = ("login", "static")
+        if request.endpoint and request.endpoint not in allowed:
+            if not current_user.is_authenticated:
+                return redirect(url_for("login"))
+
     @app.context_processor
     def inject_cdu():
         return dict(cdu_colors=CDU_COLORS, cdu_labels=CDU_LABELS)
+
+    # ──────────────────────────────────────────────────────────────
+    #  AUTHENTICATION
+    # ──────────────────────────────────────────────────────────────
+    @app.route("/login", methods=["GET", "POST"])
+    def login():
+        if current_user.is_authenticated:
+            return redirect(url_for("dashboard"))
+        form = LoginForm()
+        if form.validate_on_submit():
+            user = User.find_by_username(form.username.data)
+            if user and user.check_password(form.password.data):
+                if not user.is_active:
+                    flash("Esta cuenta está desactivada.", "danger")
+                    return render_template("auth/login.html", form=form)
+                login_user(user, remember=True)
+                flash(f"Bienvenido/a, {user.display_name or user.username}.", "success")
+                return redirect(request.args.get("next") or url_for("dashboard"))
+            flash("Usuario o contraseña incorrectos.", "danger")
+        return render_template("auth/login.html", form=form)
+
+    @app.route("/logout")
+    def logout():
+        logout_user()
+        flash("Sesión cerrada.", "info")
+        return redirect(url_for("login"))
 
     # ──────────────────────────────────────────────────────────────
     #  DASHBOARD
     # ──────────────────────────────────────────────────────────────
     @app.route("/")
     def dashboard():
-        total_books = Book.query.count()
-        total_students = Student.query.count()
-        active_loans = Loan.query.filter(Loan.returned_at.is_(None)).count()
-        overdue_loans = Loan.query.filter(
-            Loan.returned_at.is_(None), Loan.due_date < date.today()
-        ).count()
+        total_books = Book.count()
+        total_students = Student.count()
+        all_loans = Loan.load_all()
 
-        recent_loans = (
-            Loan.query.filter(Loan.returned_at.is_(None))
-            .order_by(Loan.borrowed_at.desc())
-            .limit(10)
-            .all()
-        )
+        active_list = [l for l in all_loans if l.returned_at is None]
+        active_loans = len(active_list)
+        overdue_list_all = [l for l in active_list if l.is_overdue]
+        overdue_loans = len(overdue_list_all)
 
-        overdue_list = (
-            Loan.query.filter(
-                Loan.returned_at.is_(None), Loan.due_date < date.today()
-            )
-            .order_by(Loan.due_date.asc())
-            .limit(10)
-            .all()
-        )
+        recent_loans = active_list[:10]
+        overdue_display = sorted(overdue_list_all, key=lambda l: l.due_date)[:10]
+        Loan.preload(recent_loans + overdue_display)
 
-        # Stats for charts
-        loans_by_category = (
-            db.session.query(Book.category, func.count(Loan.id))
-            .join(Loan, Loan.book_id == Book.id)
-            .filter(Loan.returned_at.is_(None))
-            .group_by(Book.category)
-            .all()
-        )
+        # Loans by category
+        books_map = {b.id: b for b in Book.load_all()}
+        cat_counter = Counter()
+        for l in active_list:
+            b = books_map.get(l.book_id)
+            if b and b.category:
+                cat_counter[b.category] += 1
+        loans_by_category = list(cat_counter.items())
 
-        # CDU distribution of all books
-        cdu_distribution = (
-            db.session.query(Book.cdu, func.count(Book.id))
-            .filter(Book.cdu.isnot(None), Book.cdu != "")
-            .group_by(Book.cdu)
-            .order_by(Book.cdu)
-            .all()
-        )
+        # CDU distribution
+        cdu_counter = Counter()
+        for b in books_map.values():
+            if b.cdu:
+                cdu_counter[b.cdu] += 1
+        cdu_distribution = sorted(cdu_counter.items())
 
         return render_template(
             "dashboard.html",
@@ -107,7 +169,7 @@ def create_app(config_class=Config):
             active_loans=active_loans,
             overdue_loans=overdue_loans,
             recent_loans=recent_loans,
-            overdue_list=overdue_list,
+            overdue_list=overdue_display,
             loans_by_category=loans_by_category,
             cdu_distribution=cdu_distribution,
         )
@@ -123,46 +185,15 @@ def create_app(config_class=Config):
         cdu_filter = request.args.get("cdu", "").strip()
         available_only = request.args.get("available", "") == "1"
 
-        query = Book.query
-
-        if q:
-            like = f"%{q}%"
-            query = query.filter(
-                or_(
-                    Book.title.ilike(like),
-                    Book.author.ilike(like),
-                    Book.isbn.ilike(like),
-                )
-            )
-        if category:
-            query = query.filter(Book.category == category)
-        if cdu_filter:
-            query = query.filter(Book.cdu == cdu_filter)
-
-        query = query.order_by(Book.title.asc())
-        pagination = query.paginate(page=page, per_page=20, error_out=False)
-
-        if available_only:
-            # Post-filter for availability (computed property)
-            items = [b for b in pagination.items if b.is_available]
-        else:
-            items = pagination.items
-
-        categories = [
-            r[0]
-            for r in db.session.query(Book.category).distinct().order_by(Book.category).all()
-            if r[0]
-        ]
-
-        cdus_in_use = [
-            r[0]
-            for r in db.session.query(Book.cdu).distinct().order_by(Book.cdu).all()
-            if r[0]
-        ]
+        books = Book.search(q=q, category=category, cdu=cdu_filter,
+                            available_only=available_only)
+        pagination = paginate_list(books, page, 20)
+        categories = Book.distinct_categories()
+        cdus_in_use = Book.distinct_cdus()
 
         return render_template(
             "books/list.html",
-            books=items,
+            books=pagination.items,
             pagination=pagination,
             q=q,
             category=category,
@@ -189,27 +220,28 @@ def create_app(config_class=Config):
                 language=form.language.data or "Español",
                 description=form.description.data or None,
             )
-            db.session.add(book)
-            db.session.commit()
+            book.save()
             flash(f'Libro "{book.title}" añadido correctamente.', "success")
             return redirect(url_for("book_detail", book_id=book.id))
         return render_template("books/form.html", form=form, editing=False)
 
     @app.route("/books/<int:book_id>")
     def book_detail(book_id):
-        book = Book.query.get_or_404(book_id)
-        active_loans = book.loans.filter(Loan.returned_at.is_(None)).all()
-        history = (
-            book.loans.filter(Loan.returned_at.isnot(None))
-            .order_by(Loan.returned_at.desc())
-            .limit(20)
-            .all()
-        )
-        book_ratings = (
-            Rating.query.filter_by(book_id=book.id)
-            .order_by(Rating.created_at.desc())
-            .all()
-        )
+        book = Book.get_or_404(book_id)
+        # Load all loans for this book
+        all_book_loans = [
+            Loan(id=int(d.id), **d.to_dict())
+            for d in get_db().collection("loans")
+            .where("book_id", "==", book_id).stream()
+        ]
+        active_loans = [l for l in all_book_loans if l.returned_at is None]
+        history = sorted(
+            [l for l in all_book_loans if l.returned_at is not None],
+            key=lambda l: l.returned_at, reverse=True,
+        )[:20]
+        Loan.preload(active_loans + history)
+
+        book_ratings = Rating.find_by_book(book_id)
         return render_template(
             "books/detail.html",
             book=book,
@@ -220,23 +252,27 @@ def create_app(config_class=Config):
 
     @app.route("/books/<int:book_id>/edit", methods=["GET", "POST"])
     def book_edit(book_id):
-        book = Book.query.get_or_404(book_id)
+        book = Book.get_or_404(book_id)
         form = BookForm(obj=book)
         if form.validate_on_submit():
             form.populate_obj(book)
-            db.session.commit()
+            book.save()
             flash(f'Libro "{book.title}" actualizado.', "success")
             return redirect(url_for("book_detail", book_id=book.id))
         return render_template("books/form.html", form=form, editing=True, book=book)
 
     @app.route("/books/<int:book_id>/delete", methods=["POST"])
     def book_delete(book_id):
-        book = Book.query.get_or_404(book_id)
-        if book.loans.filter(Loan.returned_at.is_(None)).count() > 0:
+        book = Book.get_or_404(book_id)
+        has_active = any(
+            d.to_dict().get("returned_at") is None
+            for d in get_db().collection("loans")
+            .where("book_id", "==", book_id).stream()
+        )
+        if has_active:
             flash("No se puede eliminar: hay préstamos activos.", "danger")
             return redirect(url_for("book_detail", book_id=book.id))
-        db.session.delete(book)
-        db.session.commit()
+        book.delete()
         flash(f'Libro "{book.title}" eliminado.', "warning")
         return redirect(url_for("book_list"))
 
@@ -250,38 +286,10 @@ def create_app(config_class=Config):
         grade = request.args.get("grade", "").strip()
         group = request.args.get("group", "").strip()
 
-        query = Student.query
-        if q:
-            like = f"%{q}%"
-            query = query.filter(
-                or_(
-                    Student.first_name.ilike(like),
-                    Student.last_name.ilike(like),
-                    Student.student_id.ilike(like),
-                    Student.email.ilike(like),
-                )
-            )
-        if grade:
-            query = query.filter(Student.grade == grade)
-        if group:
-            query = query.filter(Student.group_name == group)
-
-        query = query.order_by(Student.last_name.asc(), Student.first_name.asc())
-        pagination = query.paginate(page=page, per_page=20, error_out=False)
-
-        grades = [
-            r[0]
-            for r in db.session.query(Student.grade).distinct().order_by(Student.grade).all()
-            if r[0]
-        ]
-        groups = [
-            r[0]
-            for r in db.session.query(Student.group_name)
-            .distinct()
-            .order_by(Student.group_name)
-            .all()
-            if r[0]
-        ]
+        students = Student.search(q=q, grade=grade, group=group)
+        pagination = paginate_list(students, page, 20)
+        grades = Student.distinct_grades()
+        groups = Student.distinct_groups()
 
         return render_template(
             "students/list.html",
@@ -306,29 +314,33 @@ def create_app(config_class=Config):
                 phone=form.phone.data or None,
                 grade=form.grade.data or None,
                 group_name=form.group_name.data or None,
-                max_loans=form.max_loans.data if form.max_loans.data is not None else None,
+                max_loans=(form.max_loans.data
+                           if form.max_loans.data is not None else None),
                 is_active=form.is_active.data,
                 notes=form.notes.data or None,
             )
-            db.session.add(student)
-            db.session.commit()
+            student.save()
             flash(f"Alumno {student.full_name} registrado.", "success")
             return redirect(url_for("student_detail", student_id=student.id))
         return render_template("students/form.html", form=form, editing=False)
 
     @app.route("/students/<int:student_id>")
     def student_detail(student_id):
-        student = Student.query.get_or_404(student_id)
-        active_loans = student.loans.filter(Loan.returned_at.is_(None)).all()
-        history = (
-            student.loans.filter(Loan.returned_at.isnot(None))
-            .order_by(Loan.returned_at.desc())
-            .all()
+        student = Student.get_or_404(student_id)
+        all_student_loans = [
+            Loan(id=int(d.id), **d.to_dict())
+            for d in get_db().collection("loans")
+            .where("student_id", "==", student_id).stream()
+        ]
+        active_loans = [l for l in all_student_loans if l.returned_at is None]
+        history = sorted(
+            [l for l in all_student_loans if l.returned_at is not None],
+            key=lambda l: l.returned_at, reverse=True,
         )
-        # Get student's ratings keyed by book_id for easy lookup
+        Loan.preload(active_loans + history)
+
         student_ratings = {
-            r.book_id: r.stars
-            for r in Rating.query.filter_by(student_id=student.id).all()
+            r.book_id: r.stars for r in Rating.find_by_student(student_id)
         }
         return render_template(
             "students/detail.html",
@@ -340,13 +352,13 @@ def create_app(config_class=Config):
 
     @app.route("/students/<int:student_id>/edit", methods=["GET", "POST"])
     def student_edit(student_id):
-        student = Student.query.get_or_404(student_id)
+        student = Student.get_or_404(student_id)
         form = StudentForm(obj=student)
         if form.validate_on_submit():
             form.populate_obj(student)
             if form.max_loans.data is None or form.max_loans.data == "":
                 student.max_loans = None
-            db.session.commit()
+            student.save()
             flash(f"Alumno {student.full_name} actualizado.", "success")
             return redirect(url_for("student_detail", student_id=student.id))
         return render_template(
@@ -355,12 +367,16 @@ def create_app(config_class=Config):
 
     @app.route("/students/<int:student_id>/delete", methods=["POST"])
     def student_delete(student_id):
-        student = Student.query.get_or_404(student_id)
-        if student.loans.filter(Loan.returned_at.is_(None)).count() > 0:
+        student = Student.get_or_404(student_id)
+        has_active = any(
+            d.to_dict().get("returned_at") is None
+            for d in get_db().collection("loans")
+            .where("student_id", "==", student_id).stream()
+        )
+        if has_active:
             flash("No se puede eliminar: tiene préstamos activos.", "danger")
             return redirect(url_for("student_detail", student_id=student.id))
-        db.session.delete(student)
-        db.session.commit()
+        student.delete()
         flash(f"Alumno {student.full_name} eliminado.", "warning")
         return redirect(url_for("student_list"))
 
@@ -375,42 +391,44 @@ def create_app(config_class=Config):
         student_filter = request.args.get("student_id", "", type=str).strip()
         grade_filter = request.args.get("grade", "").strip()
 
-        query = Loan.query.join(Book).join(Student)
+        all_loans = Loan.load_all()
+        Loan.preload(all_loans)
 
+        # Status filter
         if status_filter == "active":
-            query = query.filter(Loan.returned_at.is_(None))
+            all_loans = [l for l in all_loans if l.returned_at is None]
         elif status_filter == "overdue":
-            query = query.filter(
-                Loan.returned_at.is_(None), Loan.due_date < date.today()
-            )
+            all_loans = [l for l in all_loans
+                         if l.returned_at is None and l.is_overdue]
         elif status_filter == "returned":
-            query = query.filter(Loan.returned_at.isnot(None))
+            all_loans = [l for l in all_loans if l.returned_at is not None]
 
+        # Text search across book title + student name
         if q:
-            like = f"%{q}%"
-            query = query.filter(
-                or_(
-                    Book.title.ilike(like),
-                    Student.first_name.ilike(like),
-                    Student.last_name.ilike(like),
-                    Student.student_id.ilike(like),
-                )
-            )
+            ql = q.lower()
+            all_loans = [
+                l for l in all_loans
+                if (l.book and ql in (l.book.title or "").lower())
+                or (l.student and (
+                    ql in (l.student.first_name or "").lower()
+                    or ql in (l.student.last_name or "").lower()
+                    or ql in (l.student.student_id or "").lower()
+                ))
+            ]
 
         if student_filter:
-            query = query.filter(Student.id == int(student_filter))
+            try:
+                sid = int(student_filter)
+                all_loans = [l for l in all_loans if l.student_id == sid]
+            except ValueError:
+                pass
 
         if grade_filter:
-            query = query.filter(Student.grade == grade_filter)
+            all_loans = [l for l in all_loans
+                         if l.student and l.student.grade == grade_filter]
 
-        query = query.order_by(Loan.borrowed_at.desc())
-        pagination = query.paginate(page=page, per_page=20, error_out=False)
-
-        grades = [
-            r[0]
-            for r in db.session.query(Student.grade).distinct().order_by(Student.grade).all()
-            if r[0]
-        ]
+        pagination = paginate_list(all_loans, page, 20)
+        grades = Student.distinct_grades()
 
         return render_template(
             "loans/list.html",
@@ -431,14 +449,12 @@ def create_app(config_class=Config):
             due_date_str = request.form.get("due_date", "")
             notes = request.form.get("notes", "").strip()
 
-            book = Book.query.get_or_404(book_id)
-            student = Student.query.get_or_404(student_id_val)
+            book = Book.get_or_404(book_id)
+            student = Student.get_or_404(student_id_val)
 
-            # Validations
             if not book.is_available:
                 flash("Este libro no tiene ejemplares disponibles.", "danger")
                 return redirect(url_for("loan_checkout"))
-
             if not student.is_active:
                 flash("Este alumno no está activo.", "danger")
                 return redirect(url_for("loan_checkout"))
@@ -446,31 +462,28 @@ def create_app(config_class=Config):
             max_loans = app.config["MAX_LOANS_PER_STUDENT"]
             if not student.can_borrow(max_loans):
                 flash(
-                    f"El alumno ya tiene el máximo de préstamos ({student.effective_max_loans}).",
+                    f"El alumno ya tiene el máximo de préstamos "
+                    f"({student.effective_max_loans}).",
                     "danger",
                 )
                 return redirect(url_for("loan_checkout"))
 
-            # Check if student already has this book
-            existing = Loan.query.filter_by(
-                book_id=book.id, student_id=student.id
-            ).filter(Loan.returned_at.is_(None)).first()
+            existing = Loan.find_active_for_book_student(book.id, student.id)
             if existing:
                 flash("El alumno ya tiene este libro en préstamo.", "warning")
                 return redirect(url_for("loan_checkout"))
 
-            # Parse borrowed date
             borrowed_date_str = request.form.get("borrowed_date", "")
             try:
                 borrowed = datetime.strptime(borrowed_date_str, "%Y-%m-%d")
             except ValueError:
                 borrowed = datetime.utcnow()
 
-            # Parse due date
             try:
                 due = datetime.strptime(due_date_str, "%Y-%m-%d").date()
             except ValueError:
-                due = borrowed.date() + timedelta(days=app.config["DEFAULT_LOAN_DAYS"])
+                due = (borrowed.date()
+                       + timedelta(days=app.config["DEFAULT_LOAN_DAYS"]))
 
             loan = Loan(
                 book_id=book.id,
@@ -479,102 +492,106 @@ def create_app(config_class=Config):
                 due_date=due,
                 notes=notes or None,
             )
-            db.session.add(loan)
-            db.session.commit()
+            loan.save()
             flash(
-                f'Préstamo registrado: "{book.title}" → {student.full_name}', "success"
+                f'Préstamo registrado: "{book.title}" → {student.full_name}',
+                "success",
             )
             return redirect(url_for("loan_list"))
 
         default_borrowed = date.today()
-        default_due = date.today() + timedelta(days=app.config["DEFAULT_LOAN_DAYS"])
-        return render_template("loans/checkout.html", default_borrowed=default_borrowed, default_due=default_due)
+        default_due = date.today() + timedelta(
+            days=app.config["DEFAULT_LOAN_DAYS"])
+        return render_template(
+            "loans/checkout.html",
+            default_borrowed=default_borrowed,
+            default_due=default_due,
+        )
 
     @app.route("/loans/<int:loan_id>/return", methods=["POST"])
     def loan_return(loan_id):
-        loan = Loan.query.get_or_404(loan_id)
+        loan = Loan.get_or_404(loan_id)
         if loan.returned_at:
             flash("Este préstamo ya fue devuelto.", "info")
-            next_url = request.form.get("next", url_for("loan_list"))
-            return redirect(next_url)
-        else:
-            loan.returned_at = datetime.utcnow()
-            db.session.commit()
-            # Check if student already rated this book
-            existing_rating = Rating.query.filter_by(
-                book_id=loan.book_id, student_id=loan.student_id
-            ).first()
-            if not existing_rating:
-                # Redirect to rate page
-                return redirect(url_for("rate_book", book_id=loan.book_id, student_id=loan.student_id))
-            else:
-                flash(
-                    f'Libro "{loan.book.title}" devuelto por {loan.student.full_name}.',
-                    "success",
-                )
-                next_url = request.form.get("next", url_for("loan_list"))
-                return redirect(next_url)
+            return redirect(request.form.get("next", url_for("loan_list")))
+
+        loan.returned_at = datetime.utcnow()
+        loan.save()
+
+        existing_rating = Rating.find_by_book_student(
+            loan.book_id, loan.student_id)
+        if not existing_rating:
+            return redirect(url_for("rate_book",
+                                    book_id=loan.book_id,
+                                    student_id=loan.student_id))
+
+        flash(
+            f'Libro "{loan.book.title}" devuelto por {loan.student.full_name}.',
+            "success",
+        )
+        return redirect(request.form.get("next", url_for("loan_list")))
 
     @app.route("/loans/<int:loan_id>/renew", methods=["POST"])
     def loan_renew(loan_id):
-        loan = Loan.query.get_or_404(loan_id)
+        loan = Loan.get_or_404(loan_id)
         max_renewals = app.config["MAX_RENEWALS"]
         if loan.returned_at:
             flash("No se puede renovar un préstamo ya devuelto.", "warning")
         elif loan.renewals >= max_renewals:
-            flash(f"Se ha alcanzado el máximo de renovaciones ({max_renewals}).", "danger")
+            flash(
+                f"Se ha alcanzado el máximo de renovaciones ({max_renewals}).",
+                "danger",
+            )
         else:
             loan.renewals += 1
-            loan.due_date = date.today() + timedelta(days=app.config["DEFAULT_LOAN_DAYS"])
-            db.session.commit()
+            loan.due_date = (date.today()
+                             + timedelta(days=app.config["DEFAULT_LOAN_DAYS"]))
+            loan.save()
             flash(
-                f"Préstamo renovado. Nueva fecha: {loan.due_date.strftime('%d/%m/%Y')}",
+                f"Préstamo renovado. Nueva fecha: "
+                f"{loan.due_date.strftime('%d/%m/%Y')}",
                 "success",
             )
-        next_url = request.form.get("next", url_for("loan_list"))
-        return redirect(next_url)
+        return redirect(request.form.get("next", url_for("loan_list")))
 
     @app.route("/loans/<int:loan_id>/update-due", methods=["POST"])
     def loan_update_due(loan_id):
-        loan = Loan.query.get_or_404(loan_id)
+        loan = Loan.get_or_404(loan_id)
         new_due_str = request.form.get("due_date", "")
         try:
             new_due = datetime.strptime(new_due_str, "%Y-%m-%d").date()
             loan.due_date = new_due
-            db.session.commit()
+            loan.save()
             flash(
                 f"Data límite actualizada a {new_due.strftime('%d/%m/%Y')}.",
                 "success",
             )
         except ValueError:
             flash("Data non válida.", "danger")
-        next_url = request.form.get("next", url_for("loan_list"))
-        return redirect(next_url)
+        return redirect(request.form.get("next", url_for("loan_list")))
 
     # ──────────────────────────────────────────────────────────────
     #  RATINGS
     # ──────────────────────────────────────────────────────────────
     @app.route("/rate/<int:book_id>/<int:student_id>", methods=["GET", "POST"])
     def rate_book(book_id, student_id):
-        book = Book.query.get_or_404(book_id)
-        student = Student.query.get_or_404(student_id)
+        book = Book.get_or_404(book_id)
+        student = Student.get_or_404(student_id)
 
         if request.method == "POST":
             stars = request.form.get("stars", type=int)
             if stars and 1 <= stars <= 5:
-                existing = Rating.query.filter_by(
-                    book_id=book.id, student_id=student.id
-                ).first()
+                existing = Rating.find_by_book_student(book.id, student.id)
                 if existing:
                     existing.stars = stars
+                    existing.save()
                 else:
-                    rating = Rating(
-                        book_id=book.id, student_id=student.id, stars=stars
-                    )
-                    db.session.add(rating)
-                db.session.commit()
+                    Rating(book_id=book.id,
+                           student_id=student.id,
+                           stars=stars).save()
                 flash(
-                    f'{student.first_name} valorou "{book.title}" con {stars} ⭐',
+                    f'{student.first_name} valorou "{book.title}" '
+                    f'con {stars} ⭐',
                     "success",
                 )
             else:
@@ -584,32 +601,24 @@ def create_app(config_class=Config):
                 )
             return redirect(url_for("loan_list"))
 
-        # GET — show the rating page
-        return render_template(
-            "loans/rate.html", book=book, student=student
-        )
+        return render_template("loans/rate.html", book=book, student=student)
 
     @app.route("/rate/<int:book_id>/<int:student_id>/quick", methods=["POST"])
     def rate_book_quick(book_id, student_id):
-        """AJAX-style quick rate from history tables."""
-        book = Book.query.get_or_404(book_id)
-        student = Student.query.get_or_404(student_id)
+        book = Book.get_or_404(book_id)
+        student = Student.get_or_404(student_id)
         stars = request.form.get("stars", type=int)
         if stars and 1 <= stars <= 5:
-            existing = Rating.query.filter_by(
-                book_id=book.id, student_id=student.id
-            ).first()
+            existing = Rating.find_by_book_student(book.id, student.id)
             if existing:
                 existing.stars = stars
+                existing.save()
             else:
-                rating = Rating(
-                    book_id=book.id, student_id=student.id, stars=stars
-                )
-                db.session.add(rating)
-            db.session.commit()
+                Rating(book_id=book.id,
+                       student_id=student.id,
+                       stars=stars).save()
             flash(f"Valoración actualizada: {stars} ⭐", "success")
-        next_url = request.form.get("next", url_for("loan_list"))
-        return redirect(next_url)
+        return redirect(request.form.get("next", url_for("loan_list")))
 
     # ──────────────────────────────────────────────────────────────
     #  API – Live search (AJAX)
@@ -619,67 +628,40 @@ def create_app(config_class=Config):
         q = request.args.get("q", "").strip()
         if len(q) < 2:
             return jsonify([])
-        like = f"%{q}%"
-        books = (
-            Book.query.filter(
-                or_(
-                    Book.title.ilike(like),
-                    Book.isbn.ilike(like),
-                    Book.author.ilike(like),
-                )
-            )
-            .limit(15)
-            .all()
-        )
-        return jsonify(
-            [
-                {
-                    "id": b.id,
-                    "title": b.title,
-                    "author": b.author,
-                    "isbn": b.isbn or "",
-                    "cdu": b.cdu or "",
-                    "available": b.copies_available,
-                    "is_available": b.is_available,
-                }
-                for b in books
-            ]
-        )
+        books = Book.search(q=q)[:15]
+        return jsonify([
+            {
+                "id": b.id,
+                "title": b.title,
+                "author": b.author,
+                "isbn": b.isbn or "",
+                "cdu": b.cdu or "",
+                "available": b.copies_available,
+                "is_available": b.is_available,
+            }
+            for b in books
+        ])
 
     @app.route("/api/students/search")
     def api_student_search():
         q = request.args.get("q", "").strip()
         if len(q) < 2:
             return jsonify([])
-        like = f"%{q}%"
-        students = (
-            Student.query.filter(
-                Student.is_active.is_(True),
-                or_(
-                    Student.first_name.ilike(like),
-                    Student.last_name.ilike(like),
-                    Student.student_id.ilike(like),
-                ),
-            )
-            .limit(15)
-            .all()
-        )
+        students = [s for s in Student.search(q=q) if s.is_active][:15]
         max_global = app.config["MAX_LOANS_PER_STUDENT"]
-        return jsonify(
-            [
-                {
-                    "id": s.id,
-                    "student_id": s.student_id,
-                    "full_name": s.full_name,
-                    "grade": s.grade or "",
-                    "group": s.group_name or "",
-                    "active_loans": s.active_loans_count,
-                    "can_borrow": s.can_borrow(max_global),
-                    "max_loans": s.effective_max_loans,
-                }
-                for s in students
-            ]
-        )
+        return jsonify([
+            {
+                "id": s.id,
+                "student_id": s.student_id,
+                "full_name": s.full_name,
+                "grade": s.grade or "",
+                "group": s.group_name or "",
+                "active_loans": s.active_loans_count,
+                "can_borrow": s.can_borrow(max_global),
+                "max_loans": s.effective_max_loans,
+            }
+            for s in students
+        ])
 
     # ──────────────────────────────────────────────────────────────
     #  SETTINGS
@@ -696,11 +678,9 @@ def create_app(config_class=Config):
             app.config["MAX_LOANS_PER_STUDENT"] = form.max_loans_per_student.data
             app.config["DEFAULT_LOAN_DAYS"] = form.default_loan_days.data
             app.config["MAX_RENEWALS"] = form.max_renewals.data
-
-            # Persist to DB
-            _set_setting("MAX_LOANS_PER_STUDENT", str(form.max_loans_per_student.data))
-            _set_setting("DEFAULT_LOAN_DAYS", str(form.default_loan_days.data))
-            _set_setting("MAX_RENEWALS", str(form.max_renewals.data))
+            _set_setting("MAX_LOANS_PER_STUDENT", form.max_loans_per_student.data)
+            _set_setting("DEFAULT_LOAN_DAYS", form.default_loan_days.data)
+            _set_setting("MAX_RENEWALS", form.max_renewals.data)
             flash("Configuración guardada.", "success")
             return redirect(url_for("settings"))
 
@@ -711,75 +691,131 @@ def create_app(config_class=Config):
     # ──────────────────────────────────────────────────────────────
     @app.route("/reports")
     def reports():
+        all_loans = Loan.load_all()
+        all_books = Book.load_all()
+        all_students = Student.load_all()
+        books_map = {b.id: b for b in all_books}
+        students_map = {s.id: s for s in all_students}
+
         # Most borrowed books
-        popular = (
-            db.session.query(Book, func.count(Loan.id).label("loan_count"))
-            .join(Loan, Loan.book_id == Book.id)
-            .group_by(Book.id)
-            .order_by(func.count(Loan.id).desc())
-            .limit(20)
-            .all()
-        )
+        book_counter = Counter(l.book_id for l in all_loans)
+        popular = [(books_map[bid], cnt)
+                   for bid, cnt in book_counter.most_common(20)
+                   if bid in books_map]
 
         # Most active readers
-        readers = (
-            db.session.query(Student, func.count(Loan.id).label("loan_count"))
-            .join(Loan, Loan.student_id == Student.id)
-            .group_by(Student.id)
-            .order_by(func.count(Loan.id).desc())
-            .limit(20)
-            .all()
-        )
+        student_counter = Counter(l.student_id for l in all_loans)
+        readers = [(students_map[sid], cnt)
+                   for sid, cnt in student_counter.most_common(20)
+                   if sid in students_map]
 
-        # Loans per month (last 12 months)
-        monthly = (
-            db.session.query(
-                func.strftime("%Y-%m", Loan.borrowed_at).label("month"),
-                func.count(Loan.id),
-            )
-            .group_by("month")
-            .order_by(func.strftime("%Y-%m", Loan.borrowed_at).desc())
-            .limit(12)
-            .all()
-        )
+        # Loans per month (last 12)
+        month_counter = Counter()
+        for l in all_loans:
+            if l.borrowed_at:
+                month_counter[l.borrowed_at.strftime("%Y-%m")] += 1
+        monthly = sorted(month_counter.items())[-12:]
 
         # Overdue students
-        overdue_students = (
-            db.session.query(Student, func.count(Loan.id).label("overdue_count"))
-            .join(Loan, Loan.student_id == Student.id)
-            .filter(Loan.returned_at.is_(None), Loan.due_date < date.today())
-            .group_by(Student.id)
-            .order_by(func.count(Loan.id).desc())
-            .all()
-        )
+        overdue_counter = Counter()
+        for l in all_loans:
+            if l.returned_at is None and l.is_overdue:
+                overdue_counter[l.student_id] += 1
+        overdue_students = [(students_map[sid], cnt)
+                            for sid, cnt in overdue_counter.most_common()
+                            if sid in students_map]
 
         # CDU distribution
-        cdu_distribution = (
-            db.session.query(Book.cdu, func.count(Book.id))
-            .filter(Book.cdu.isnot(None), Book.cdu != "")
-            .group_by(Book.cdu)
-            .order_by(Book.cdu)
-            .all()
-        )
+        cdu_counter = Counter(b.cdu for b in all_books if b.cdu)
+        cdu_distribution = sorted(cdu_counter.items())
 
         return render_template(
             "reports.html",
             popular=popular,
             readers=readers,
-            monthly=list(reversed(monthly)),
+            monthly=monthly,
             overdue_students=overdue_students,
             cdu_distribution=cdu_distribution,
         )
+
+    # ──────────────────────────────────────────────────────────────
+    #  USER MANAGEMENT
+    # ──────────────────────────────────────────────────────────────
+    @app.route("/users")
+    def user_list():
+        if not current_user.is_admin:
+            flash("Solo los administradores pueden gestionar usuarios.", "danger")
+            return redirect(url_for("dashboard"))
+        users = User.query_all()
+        return render_template("users/list.html", users=users)
+
+    @app.route("/users/new", methods=["GET", "POST"])
+    def user_new():
+        if not current_user.is_admin:
+            flash("Solo los administradores pueden crear usuarios.", "danger")
+            return redirect(url_for("dashboard"))
+        form = CreateUserForm()
+        if form.validate_on_submit():
+            if User.find_by_username(form.username.data):
+                flash("Ya existe un usuario con ese nombre.", "danger")
+            else:
+                user = User(
+                    username=form.username.data,
+                    display_name=form.display_name.data or form.username.data,
+                    is_admin=form.is_admin.data,
+                )
+                user.set_password(form.password.data)
+                user.save()
+                flash(f"Usuario '{user.username}' creado.", "success")
+                return redirect(url_for("user_list"))
+        return render_template("users/form.html", form=form)
+
+    @app.route("/users/<int:user_id>/toggle", methods=["POST"])
+    def user_toggle(user_id):
+        if not current_user.is_admin:
+            abort(403)
+        user = User.get_or_404(user_id)
+        if user.id == current_user.id:
+            flash("No puedes desactivarte a ti mismo.", "danger")
+        else:
+            user.is_active_user = not user.is_active_user
+            user.save()
+            state = "activado" if user.is_active_user else "desactivado"
+            flash(f"Usuario '{user.username}' {state}.", "success")
+        return redirect(url_for("user_list"))
+
+    @app.route("/users/<int:user_id>/delete", methods=["POST"])
+    def user_delete(user_id):
+        if not current_user.is_admin:
+            abort(403)
+        user = User.get_or_404(user_id)
+        if user.id == current_user.id:
+            flash("No puedes eliminarte a ti mismo.", "danger")
+        else:
+            user.delete()
+            flash(f"Usuario '{user.username}' eliminado.", "warning")
+        return redirect(url_for("user_list"))
+
+    @app.route("/change-password", methods=["GET", "POST"])
+    def change_password():
+        form = ChangePasswordForm()
+        if form.validate_on_submit():
+            if not current_user.check_password(form.current_password.data):
+                flash("La contraseña actual es incorrecta.", "danger")
+            else:
+                current_user.set_password(form.new_password.data)
+                current_user.save()
+                flash("Contraseña actualizada correctamente.", "success")
+                return redirect(url_for("settings"))
+        return render_template("users/change_password.html", form=form)
 
     # ──────────────────────────────────────────────────────────────
     #  DATABASE MANAGEMENT
     # ──────────────────────────────────────────────────────────────
     @app.route("/reset-db", methods=["GET"])
     def reset_db():
-        import os
-
-        db.drop_all()
-        db.create_all()
+        drop_all()
+        _create_default_admin()
         flash("Base de datos reseteada correctamente.", "warning")
         return redirect(url_for("settings"))
 
@@ -787,14 +823,11 @@ def create_app(config_class=Config):
     def reimport_data():
         import subprocess, sys
 
-        db.drop_all()
-        db.create_all()
+        drop_data()
         try:
             result = subprocess.run(
                 [sys.executable, "import_numbers.py"],
-                capture_output=True,
-                text=True,
-                cwd=app.root_path,
+                capture_output=True, text=True, cwd=app.root_path,
             )
             if result.returncode == 0:
                 flash("Datos reimportados correctamente.", "success")
@@ -807,7 +840,6 @@ def create_app(config_class=Config):
     return app
 
 
-app = create_app()
-
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5001)
+    app = create_app()
+    app.run(debug=False, host="0.0.0.0", port=5001)

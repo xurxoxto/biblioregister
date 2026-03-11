@@ -7,8 +7,34 @@ from wtforms import (
     BooleanField,
     DateField,
     HiddenField,
+    PasswordField,
 )
-from wtforms.validators import DataRequired, Optional, Length, NumberRange, Email
+from wtforms.validators import DataRequired, Optional, Length, NumberRange, Email, EqualTo
+
+
+# ── Auth Forms ────────────────────────────────────────────────────────
+class LoginForm(FlaskForm):
+    username = StringField("Usuario", validators=[DataRequired(), Length(max=80)])
+    password = PasswordField("Contraseña", validators=[DataRequired()])
+
+
+class ChangePasswordForm(FlaskForm):
+    current_password = PasswordField("Contraseña actual", validators=[DataRequired()])
+    new_password = PasswordField(
+        "Nueva contraseña",
+        validators=[DataRequired(), Length(min=4, max=128)],
+    )
+    confirm_password = PasswordField(
+        "Confirmar contraseña",
+        validators=[DataRequired(), EqualTo("new_password", message="Las contraseñas no coinciden.")],
+    )
+
+
+class CreateUserForm(FlaskForm):
+    username = StringField("Usuario", validators=[DataRequired(), Length(min=3, max=80)])
+    display_name = StringField("Nombre", validators=[Optional(), Length(max=150)])
+    password = PasswordField("Contraseña", validators=[DataRequired(), Length(min=4, max=128)])
+    is_admin = BooleanField("Administrador", default=False)
 
 
 # ── Book Form ─────────────────────────────────────────────────────────

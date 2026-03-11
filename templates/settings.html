@@ -91,6 +91,28 @@
                 </div>
             </div>
         </div>
+
+        <!-- User Management -->
+        <div class="card shadow-sm mt-4">
+            <div class="card-header">
+                <i class="bi bi-person-circle"></i> Conta de Usuario
+            </div>
+            <div class="card-body">
+                <p class="mb-2">Sesión iniciada como: <strong>{{ current_user.display_name or current_user.username }}</strong>
+                    {% if current_user.is_admin %}<span class="badge bg-warning text-dark ms-1">Admin</span>{% endif %}
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{{ url_for('change_password') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-key me-1"></i> Cambiar Contraseña
+                    </a>
+                    {% if current_user.is_admin %}
+                    <a href="{{ url_for('user_list') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-people me-1"></i> Gestionar Usuarios
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
