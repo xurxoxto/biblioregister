@@ -20,21 +20,29 @@ _db = None
 def init_firebase(app):
     """Initialise Firebase Admin SDK and Firestore client."""
     import json as _json
+    import base64 as _b64
     import os as _os
     global _db
     if not firebase_admin._apps:
         cred_path = app.config.get("FIREBASE_CREDENTIALS")
-        cred_json = _os.environ.get("FIREBASE_CREDENTIALS_JSON")  # inline JSON string
+        cred_json = _os.environ.get("FIREBASE_CREDENTIALS_JSON", "").strip()
         project_id = app.config.get("FIREBASE_PROJECT_ID")
         opts = {"projectId": project_id} if project_id else {}
         if cred_path:
             firebase_admin.initialize_app(credentials.Certificate(cred_path), opts)
         elif cred_json:
+            # Support both raw JSON and base64-encoded JSON
+            if not cred_json.startswith("{"):
+                try:
+                    cred_json = _b64.b64decode(cred_json).decode("utf-8")
+                except Exception:
+                    pass  # not base64, try as raw JSON
             try:
                 info = _json.loads(cred_json)
             except _json.JSONDecodeError as e:
                 raise RuntimeError(
-                    f"FIREBASE_CREDENTIALS_JSON is not valid JSON: {e}"
+                    f"FIREBASE_CREDENTIALS_JSON is not valid JSON (len={len(cred_json)}, "
+                    f"first 20 chars={cred_json[:20]!r}): {e}"
                 ) from e
             firebase_admin.initialize_app(credentials.Certificate(info), opts)
         else:
