@@ -13,7 +13,7 @@ class Config:
 
     # Library settings
     MAX_LOANS_PER_STUDENT = int(os.environ.get("MAX_LOANS_PER_STUDENT", 3))
-    DEFAULT_LOAN_DAYS = int(os.environ.get("DEFAULT_LOAN_DAYS", 14))
+    DEFAULT_LOAN_DAYS = int(os.environ.get("DEFAULT_LOAN_DAYS", 30))
     MAX_RENEWALS = int(os.environ.get("MAX_RENEWALS", 2))
 
     # Default admin credentials (only used on first run)

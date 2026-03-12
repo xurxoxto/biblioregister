@@ -47,3 +47,29 @@ document.querySelectorAll('[data-confirm]').forEach(function(el) {
         }
     });
 });
+
+// ── Floating Action Button (FAB) ────────────────────────────────
+(function() {
+    const fabContainer = document.getElementById('fabContainer');
+    const fabTrigger = document.getElementById('fabTrigger');
+    if (!fabContainer || !fabTrigger) return;
+
+    fabTrigger.addEventListener('click', function(e) {
+        e.stopPropagation();
+        fabContainer.classList.toggle('open');
+    });
+
+    // Close FAB on outside click
+    document.addEventListener('click', function(e) {
+        if (!fabContainer.contains(e.target)) {
+            fabContainer.classList.remove('open');
+        }
+    });
+
+    // Close FAB on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            fabContainer.classList.remove('open');
+        }
+    });
+})();

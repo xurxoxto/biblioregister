@@ -55,23 +55,55 @@
     </div>
 </div>
 
-<!-- Quick Actions -->
-<div class="card shadow-sm mb-4">
-    <div class="card-body py-3">
-        <div class="quick-actions">
-            <a href="{{ url_for('loan_checkout') }}" class="quick-action-btn primary">
-                <i class="bi bi-plus-circle-fill"></i> Novo Préstamo
-            </a>
-            <a href="{{ url_for('book_new') }}" class="quick-action-btn accent">
-                <i class="bi bi-book"></i> Engadir Libro
-            </a>
-            <a href="{{ url_for('student_new') }}" class="btn btn-outline-success">
-                <i class="bi bi-person-plus-fill"></i> Engadir Alumno
-            </a>
-            <a href="{{ url_for('reports') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-bar-chart-fill"></i> Informes
-            </a>
-        </div>
+<!-- ── Hero Quick Actions ─────────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+        <a href="{{ url_for('loan_checkout') }}" class="action-tile action-tile-prestamo">
+            <div class="action-tile-icon">
+                <i class="bi bi-plus-circle-fill"></i>
+            </div>
+            <div class="action-tile-body">
+                <span class="action-tile-title">Novo Préstamo</span>
+                <span class="action-tile-desc">Rexistrar un préstamo novo</span>
+            </div>
+            <i class="bi bi-arrow-right action-tile-arrow"></i>
+        </a>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <a href="{{ url_for('loan_list', status='active') }}" class="action-tile action-tile-devolucion">
+            <div class="action-tile-icon">
+                <i class="bi bi-box-arrow-in-down"></i>
+            </div>
+            <div class="action-tile-body">
+                <span class="action-tile-title">Devolver Libro</span>
+                <span class="action-tile-desc">Rexistrar unha devolución</span>
+            </div>
+            <i class="bi bi-arrow-right action-tile-arrow"></i>
+        </a>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <a href="{{ url_for('student_new') }}" class="action-tile action-tile-alumno">
+            <div class="action-tile-icon">
+                <i class="bi bi-person-plus-fill"></i>
+            </div>
+            <div class="action-tile-body">
+                <span class="action-tile-title">Novo Alumno</span>
+                <span class="action-tile-desc">Crear ficha de alumno</span>
+            </div>
+            <i class="bi bi-arrow-right action-tile-arrow"></i>
+        </a>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <a href="{{ url_for('book_new') }}" class="action-tile action-tile-libro">
+            <div class="action-tile-icon">
+                <i class="bi bi-journal-plus"></i>
+            </div>
+            <div class="action-tile-body">
+                <span class="action-tile-title">Rexistrar Libro</span>
+                <span class="action-tile-desc">Engadir ao catálogo</span>
+            </div>
+            <i class="bi bi-arrow-right action-tile-arrow"></i>
+        </a>
     </div>
 </div>
 
@@ -116,11 +148,12 @@
                                 <th>Alumno</th>
                                 <th>Vencemento</th>
                                 <th>Estado</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for loan in recent_loans %}
-                            <tr>
+                            <tr class="{{ 'row-overdue' if loan.is_overdue }}">
                                 <td>
                                     <a href="{{ url_for('book_detail', book_id=loan.book.id) }}">
                                         {{ loan.book.title|truncate(30) }}
@@ -134,16 +167,24 @@
                                 <td><small>{{ loan.due_date.strftime('%d/%m/%Y') }}</small></td>
                                 <td>
                                     {% if loan.is_overdue %}
-                                        <span class="badge bg-warning text-dark">Fóra de prazo</span>
+                                        <span class="badge bg-warning text-dark">{{ loan.days_overdue }}d fóra</span>
                                     {% else %}
                                         <span class="badge bg-success">Activo</span>
                                     {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <form method="POST" action="{{ url_for('loan_return', loan_id=loan.id) }}" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button class="btn btn-sm btn-return" title="Devolver">
+                                            <i class="bi bi-box-arrow-in-down"></i> Devolver
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                             {% endfor %}
                             {% if not recent_loans %}
                             <tr>
-                                <td colspan="4" class="empty-state">
+                                <td colspan="5" class="empty-state">
                                     <i class="bi bi-inbox"></i>
                                     <p>Non hai préstamos activos</p>
                                 </td>

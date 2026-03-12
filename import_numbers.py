@@ -167,7 +167,7 @@ def import_data(filepath=None):
             returned_at = _parse_date(fecha_devolucion)
             due_date = borrowed_at.date()
             from datetime import timedelta
-            due_date = borrowed_at.date() + timedelta(days=14)
+            due_date = borrowed_at.date() + timedelta(days=30)
 
             loan = Loan(
                 book_id=book.id,

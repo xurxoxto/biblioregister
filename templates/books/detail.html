@@ -116,12 +116,12 @@
                                     <form method="POST" action="{{ url_for('loan_return', loan_id=loan.id) }}">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <input type="hidden" name="next" value="{{ url_for('book_detail', book_id=book.id) }}">
-                                        <button class="btn btn-sm btn-icon btn-success" title="Devolver"><i class="bi bi-check-lg"></i></button>
+                                        <button class="btn btn-sm btn-return" title="Devolver"><i class="bi bi-box-arrow-in-down"></i> Devolver</button>
                                     </form>
                                     <form method="POST" action="{{ url_for('loan_renew', loan_id=loan.id) }}">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <input type="hidden" name="next" value="{{ url_for('book_detail', book_id=book.id) }}">
-                                        <button class="btn btn-sm btn-icon btn-outline-info" title="Renovar"><i class="bi bi-arrow-clockwise"></i></button>
+                                        <button class="btn btn-sm btn-renew" title="Renovar"><i class="bi bi-arrow-clockwise"></i> Renovar</button>
                                     </form>
                                 </div>
                             </td>

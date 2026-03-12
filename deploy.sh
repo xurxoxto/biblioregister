@@ -62,7 +62,7 @@ gcloud run deploy "${SERVICE_NAME}" \
     --set-env-vars "ADMIN_USERNAME=${ADMIN_USERNAME:-admin}" \
     --set-env-vars "ADMIN_PASSWORD=${ADMIN_PASSWORD:-biblio2025}" \
     --set-env-vars "MAX_LOANS_PER_STUDENT=3" \
-    --set-env-vars "DEFAULT_LOAN_DAYS=14" \
+    --set-env-vars "DEFAULT_LOAN_DAYS=30" \
     --set-env-vars "MAX_RENEWALS=2"
 
 # ── 5. Desplegar Firebase Hosting (proxy → Cloud Run) ───────────

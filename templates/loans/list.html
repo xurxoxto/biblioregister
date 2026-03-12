@@ -110,17 +110,17 @@
                     </td>
                     <td>
                         {% if loan.is_active %}
-                        <div class="d-flex gap-1">
+                        <div class="d-flex gap-1 flex-nowrap">
                             <form method="POST" action="{{ url_for('loan_return', loan_id=loan.id) }}">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button class="btn btn-sm btn-icon btn-success" title="Devolver">
-                                    <i class="bi bi-check-lg"></i>
+                                <button class="btn btn-sm btn-return" title="Devolver">
+                                    <i class="bi bi-box-arrow-in-down"></i> Devolver
                                 </button>
                             </form>
                             <form method="POST" action="{{ url_for('loan_renew', loan_id=loan.id) }}">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button class="btn btn-sm btn-icon btn-outline-info" title="Renovar">
-                                    <i class="bi bi-arrow-clockwise"></i>
+                                <button class="btn btn-sm btn-renew" title="Renovar">
+                                    <i class="bi bi-arrow-clockwise"></i> Renovar
                                 </button>
                             </form>
                         </div>

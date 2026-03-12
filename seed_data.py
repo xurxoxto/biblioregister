@@ -105,7 +105,7 @@ def seed():
 
             days_ago = random.randint(1, 30)
             borrowed = datetime.now() - timedelta(days=days_ago)
-            due = (today - timedelta(days=days_ago) + timedelta(days=14))
+            due = (today - timedelta(days=days_ago) + timedelta(days=30))
 
             loan = Loan(
                 book_id=book.id,
