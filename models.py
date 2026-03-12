@@ -30,7 +30,12 @@ def init_firebase(app):
         if cred_path:
             firebase_admin.initialize_app(credentials.Certificate(cred_path), opts)
         elif cred_json:
-            info = _json.loads(cred_json)
+            try:
+                info = _json.loads(cred_json)
+            except _json.JSONDecodeError as e:
+                raise RuntimeError(
+                    f"FIREBASE_CREDENTIALS_JSON is not valid JSON: {e}"
+                ) from e
             firebase_admin.initialize_app(credentials.Certificate(info), opts)
         else:
             # Application Default Credentials — works on Cloud Run automatically
