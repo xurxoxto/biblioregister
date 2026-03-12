@@ -149,34 +149,6 @@
     </div>
 </div>
 
-<!-- ── Floating Action Button ────────────────────────────────── -->
-{% if current_user.is_authenticated %}
-<div class="fab-container" id="fabContainer">
-    <div class="fab-menu" id="fabMenu">
-        <a href="{{ url_for('loan_list', status='active') }}" class="fab-item fab-devolucion">
-            <span class="fab-label">Devolver Libro</span>
-            <div class="fab-item-icon"><i class="bi bi-box-arrow-in-down"></i></div>
-        </a>
-        <a href="{{ url_for('student_new') }}" class="fab-item fab-alumno">
-            <span class="fab-label">Novo Alumno</span>
-            <div class="fab-item-icon"><i class="bi bi-person-plus-fill"></i></div>
-        </a>
-        <a href="{{ url_for('book_new') }}" class="fab-item fab-libro">
-            <span class="fab-label">Rexistrar Libro</span>
-            <div class="fab-item-icon"><i class="bi bi-journal-plus"></i></div>
-        </a>
-        <a href="{{ url_for('loan_checkout') }}" class="fab-item fab-prestamo">
-            <span class="fab-label">Novo Préstamo</span>
-            <div class="fab-item-icon"><i class="bi bi-plus-circle-fill"></i></div>
-        </a>
-    </div>
-    <button class="fab-trigger" id="fabTrigger" aria-label="Accións rápidas" title="Accións rápidas">
-        <i class="bi bi-lightning-charge-fill fab-icon-open"></i>
-        <i class="bi bi-x-lg fab-icon-close"></i>
-    </button>
-</div>
-{% endif %}
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
