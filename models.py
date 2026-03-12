@@ -19,13 +19,19 @@ _db = None
 
 def init_firebase(app):
     """Initialise Firebase Admin SDK and Firestore client."""
+    import json as _json
+    import os as _os
     global _db
     if not firebase_admin._apps:
         cred_path = app.config.get("FIREBASE_CREDENTIALS")
+        cred_json = _os.environ.get("FIREBASE_CREDENTIALS_JSON")  # inline JSON string
         project_id = app.config.get("FIREBASE_PROJECT_ID")
         opts = {"projectId": project_id} if project_id else {}
         if cred_path:
             firebase_admin.initialize_app(credentials.Certificate(cred_path), opts)
+        elif cred_json:
+            info = _json.loads(cred_json)
+            firebase_admin.initialize_app(credentials.Certificate(info), opts)
         else:
             # Application Default Credentials — works on Cloud Run automatically
             firebase_admin.initialize_app(options=opts)

@@ -1,0 +1,27 @@
+# ── BiblioRegister — Render.com Blueprint ────────────────────────
+# Deploy: connect this repo on https://dashboard.render.com
+# Render will auto-detect this file and configure everything.
+# ─────────────────────────────────────────────────────────────────
+services:
+  - type: web
+    name: biblioregister
+    runtime: docker                     # uses the existing Dockerfile
+    plan: free                          # fully free, no credit card needed
+    region: frankfurt                    # closest to Galicia on Render
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true             # auto-generate a secure random key
+      - key: FIREBASE_PROJECT_ID
+        value: biblioutes
+      - key: FIREBASE_CREDENTIALS_JSON
+        sync: false                     # you'll set this manually in dashboard
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false                     # set securely in dashboard
+      - key: MAX_LOANS_PER_STUDENT
+        value: "3"
+      - key: DEFAULT_LOAN_DAYS
+        value: "14"
+      - key: MAX_RENEWALS
+        value: "2"
