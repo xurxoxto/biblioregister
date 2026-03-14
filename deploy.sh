@@ -70,9 +70,38 @@ echo ""
 echo "🌐 Desplegando Firebase Hosting..."
 firebase deploy --only hosting --project "${PROJECT_ID}"
 
-# ── 6. Mostrar URLs ─────────────────────────────────────────────
+# ── 6. Keep-alive con Cloud Scheduler (lunes a viernes, 8–15h) ──
+echo ""
+echo "⏰ Configurando keep-alive (Cloud Scheduler)..."
+gcloud services enable cloudscheduler.googleapis.com 2>/dev/null || true
+
 CLOUD_RUN_URL=$(gcloud run services describe "${SERVICE_NAME}" \
     --region "${REGION}" --format="value(status.url)" 2>/dev/null || echo "")
+
+# Crear o actualizar el job — ping cada 10 min en horario escolar
+if gcloud scheduler jobs describe biblioregister-keepalive \
+    --location="${REGION}" &>/dev/null; then
+    gcloud scheduler jobs update http biblioregister-keepalive \
+        --location="${REGION}" \
+        --schedule="*/10 8-15 * * 1-5" \
+        --time-zone="Europe/Madrid" \
+        --uri="${CLOUD_RUN_URL}/healthz" \
+        --http-method=GET \
+        --attempt-deadline=30s \
+        --quiet
+else
+    gcloud scheduler jobs create http biblioregister-keepalive \
+        --location="${REGION}" \
+        --schedule="*/10 8-15 * * 1-5" \
+        --time-zone="Europe/Madrid" \
+        --uri="${CLOUD_RUN_URL}/healthz" \
+        --http-method=GET \
+        --attempt-deadline=30s \
+        --quiet
+fi
+echo "   ✅ Ping cada 10 min (L-V, 8:00–15:59 Madrid)"
+
+# ── 7. Mostrar URLs ─────────────────────────────────────────────
 echo ""
 echo "══════════════════════════════════════════════════════════"
 echo "✅ ¡Desplegue completado!"
