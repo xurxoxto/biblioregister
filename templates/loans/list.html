@@ -7,9 +7,9 @@
 
 {% block content %}
 <div class="page-header">
-    <h4><i class="bi bi-arrow-left-right"></i> Préstamos</h4>
+    <h4><i class="bi bi-list-check"></i> Préstamos</h4>
     <a href="{{ url_for('loan_checkout') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle-fill"></i> Novo Préstamo
+        <i class="bi bi-arrow-repeat"></i> Circulación
     </a>
 </div>
 
@@ -113,12 +113,14 @@
                         <div class="d-flex gap-1 flex-nowrap">
                             <form method="POST" action="{{ url_for('loan_return', loan_id=loan.id) }}">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="next" value="{{ url_for('loan_list', status=status_filter, q=q, grade=grade_filter, page=pagination.page) }}">
                                 <button class="btn btn-sm btn-return" title="Devolver">
                                     <i class="bi bi-box-arrow-in-down"></i> Devolver
                                 </button>
                             </form>
                             <form method="POST" action="{{ url_for('loan_renew', loan_id=loan.id) }}">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="next" value="{{ url_for('loan_list', status=status_filter, q=q, grade=grade_filter, page=pagination.page) }}">
                                 <button class="btn btn-sm btn-renew" title="Renovar">
                                     <i class="bi bi-arrow-clockwise"></i> Renovar
                                 </button>

@@ -222,7 +222,8 @@ def create_app(config_class=Config):
             )
             book.save()
             flash(f'Libro "{book.title}" añadido correctamente.', "success")
-            return redirect(url_for("book_detail", book_id=book.id))
+            return redirect(url_for("book_detail", book_id=book.id,
+                                    just_created=1))
         return render_template("books/form.html", form=form, editing=False)
 
     @app.route("/books/<int:book_id>")
@@ -497,7 +498,8 @@ def create_app(config_class=Config):
                 f'Préstamo registrado: "{book.title}" → {student.full_name}',
                 "success",
             )
-            return redirect(url_for("loan_list"))
+            return redirect(url_for("loan_checkout",
+                                    student_id=student.id))
 
         default_borrowed = date.today()
         default_due = date.today() + timedelta(
@@ -518,17 +520,27 @@ def create_app(config_class=Config):
         loan.returned_at = datetime.utcnow()
         loan.save()
 
+        book = loan.book
+        student = loan.student
+        book_title = book.title if book else "?"
+        student_name = student.full_name if student else "?"
+
         existing_rating = Rating.find_by_book_student(
             loan.book_id, loan.student_id)
         if not existing_rating:
-            return redirect(url_for("rate_book",
-                                    book_id=loan.book_id,
-                                    student_id=loan.student_id))
-
-        flash(
-            f'Libro "{loan.book.title}" devuelto por {loan.student.full_name}.',
-            "success",
-        )
+            rate_url = url_for("rate_book",
+                               book_id=loan.book_id,
+                               student_id=loan.student_id)
+            flash(
+                f'Libro "{book_title}" devuelto por {student_name}. '
+                f'<a href="{rate_url}" class="alert-link fw-bold">⭐ Valorar libro</a>',
+                "success",
+            )
+        else:
+            flash(
+                f'Libro "{book_title}" devuelto por {student_name}.',
+                "success",
+            )
         return redirect(request.form.get("next", url_for("loan_list")))
 
     @app.route("/loans/<int:loan_id>/renew", methods=["POST"])
@@ -626,7 +638,7 @@ def create_app(config_class=Config):
     @app.route("/api/books/search")
     def api_book_search():
         q = request.args.get("q", "").strip()
-        if len(q) < 2:
+        if len(q) < 1:
             return jsonify([])
         books = Book.search(q=q)[:15]
         return jsonify([
@@ -645,7 +657,7 @@ def create_app(config_class=Config):
     @app.route("/api/students/search")
     def api_student_search():
         q = request.args.get("q", "").strip()
-        if len(q) < 2:
+        if len(q) < 1:
             return jsonify([])
         students = [s for s in Student.search(q=q) if s.is_active][:15]
         max_global = app.config["MAX_LOANS_PER_STUDENT"]
@@ -662,6 +674,102 @@ def create_app(config_class=Config):
             }
             for s in students
         ])
+
+    # ──────────────────────────────────────────────────────────────
+    #  API – AJAX returns & data endpoints
+    # ──────────────────────────────────────────────────────────────
+    @app.route("/api/loans/<int:loan_id>/return", methods=["POST"])
+    def api_loan_return(loan_id):
+        """AJAX endpoint to return a book without page reload."""
+        loan = Loan.get(loan_id)
+        if not loan:
+            return jsonify({"ok": False, "error": "Préstamo no encontrado"}), 404
+        if loan.returned_at:
+            return jsonify({"ok": False, "error": "Ya devuelto"})
+        loan.returned_at = datetime.utcnow()
+        loan.save()
+        book = loan.book
+        student = loan.student
+        has_rating = Rating.find_by_book_student(
+            loan.book_id, loan.student_id) is not None
+        return jsonify({
+            "ok": True,
+            "loan_id": loan.id,
+            "book_id": loan.book_id,
+            "student_id": loan.student_id,
+            "book_title": book.title if book else "",
+            "student_name": student.full_name if student else "",
+            "has_rating": has_rating,
+        })
+
+    @app.route("/api/students/<int:student_id>/loans")
+    def api_student_loans(student_id):
+        """Get a student's active loans (for the circulation page)."""
+        student = Student.get(student_id)
+        if not student:
+            return jsonify([])
+        loans_docs = list(
+            get_db().collection("loans")
+            .where("student_id", "==", student_id).stream()
+        )
+        loans = [
+            Loan(id=int(d.id), **d.to_dict())
+            for d in loans_docs
+            if d.to_dict().get("returned_at") is None
+        ]
+        Loan.preload(loans)
+        return jsonify([
+            {
+                "id": l.id,
+                "book_id": l.book_id,
+                "book_title": l.book.title if l.book else "?",
+                "book_author": l.book.author if l.book else "",
+                "book_cdu": l.book.cdu if l.book else "",
+                "borrowed_at": l.borrowed_at.strftime("%d/%m/%Y") if l.borrowed_at else "",
+                "due_date": l.due_date.strftime("%d/%m/%Y") if l.due_date else "",
+                "is_overdue": l.is_overdue,
+                "days_overdue": l.days_overdue,
+            }
+            for l in sorted(loans,
+                            key=lambda x: x.borrowed_at or datetime.min,
+                            reverse=True)
+        ])
+
+    @app.route("/api/books/<int:book_id>")
+    def api_book_get(book_id):
+        """Get a single book by ID."""
+        book = Book.get(book_id)
+        if not book:
+            return jsonify({}), 404
+        return jsonify({
+            "id": book.id,
+            "title": book.title,
+            "author": book.author,
+            "isbn": book.isbn or "",
+            "cdu": book.cdu or "",
+            "available": book.copies_available,
+            "is_available": book.is_available,
+        })
+
+    @app.route("/api/students/<int:student_id>")
+    def api_student_get(student_id):
+        """Get a single student by ID."""
+        student = Student.get(student_id)
+        if not student:
+            return jsonify({}), 404
+        max_global = app.config["MAX_LOANS_PER_STUDENT"]
+        return jsonify({
+            "id": student.id,
+            "student_id": student.student_id,
+            "full_name": student.full_name,
+            "first_name": student.first_name,
+            "last_name": student.last_name,
+            "grade": student.grade or "",
+            "group": student.group_name or "",
+            "active_loans": student.active_loans_count,
+            "can_borrow": student.can_borrow(max_global),
+            "max_loans": student.effective_max_loans,
+        })
 
     # ──────────────────────────────────────────────────────────────
     #  SETTINGS

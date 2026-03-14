@@ -84,8 +84,8 @@
 
         {% if student.is_active and student.can_borrow(config.MAX_LOANS_PER_STUDENT) %}
         <div class="mt-3">
-            <a href="{{ url_for('loan_checkout') }}?student={{ student.id }}" class="btn btn-primary w-100">
-                <i class="bi bi-plus-circle-fill"></i> Novo Préstamo
+            <a href="{{ url_for('loan_checkout', student_id=student.id) }}" class="btn btn-primary w-100">
+                <i class="bi bi-arrow-repeat"></i> Circulación
             </a>
         </div>
         {% endif %}

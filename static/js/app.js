@@ -1,5 +1,5 @@
 /**
- * BiblioRegister — Frontend JS
+ * BiblioRegister — Frontend JS (v3)
  */
 
 // ── Sidebar Toggle (mobile) ─────────────────────────────────────
@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
                 bsAlert.close();
             } catch(e) {}
-        }, 5000);
+        }, 7000);
     });
 
     // Animate stat cards
@@ -48,4 +48,9 @@ document.querySelectorAll('[data-confirm]').forEach(function(el) {
     });
 });
 
-
+// ── Prevent touch-scroll from closing suggestions ───────────────
+document.querySelectorAll('.circ-suggestions, .autocomplete-results').forEach(function(el) {
+    el.addEventListener('touchmove', function(e) {
+        e.stopPropagation();
+    }, { passive: true });
+});

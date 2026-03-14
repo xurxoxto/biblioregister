@@ -1,105 +1,150 @@
 {% extends "base.html" %}
-{% block title %}Novo Préstamo — BiblioRegister{% endblock %}
+{% block title %}Circulación — BiblioRegister{% endblock %}
 {% block breadcrumb %}
 <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Panel</a></li>
-<li class="breadcrumb-item"><a href="{{ url_for('loan_list') }}">Préstamos</a></li>
-<li class="breadcrumb-item active">Novo Préstamo</li>
+<li class="breadcrumb-item active">Circulación</li>
 {% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-10">
-        <div class="card shadow-sm">
-            <div class="card-header">
-                <i class="bi bi-plus-circle-fill"></i> Novo Préstamo
+<div class="circulation-page">
+
+    <!-- ─── Step 1: Student Search ──────────────────────── -->
+    <div class="circ-step" id="stepStudent">
+        <div class="circ-search-box">
+            <div class="circ-search-icon"><i class="bi bi-search"></i></div>
+            <input type="text" id="studentSearchInput" class="circ-search-input"
+                   placeholder="Buscar alumno por nome, apelidos ou nº lector..."
+                   autocomplete="off" autofocus>
+            <button type="button" class="circ-search-clear d-none" id="studentClearBtn"
+                    onclick="clearStudentFull()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div id="studentSuggestions" class="circ-suggestions"></div>
+    </div>
+
+    <!-- ─── Student Panel (shown after selection) ───────── -->
+    <div id="studentPanel" class="d-none">
+
+        <!-- Student Header -->
+        <div class="circ-student-header">
+            <div class="circ-student-info">
+                <div class="circ-avatar" id="cirAvatar"></div>
+                <div>
+                    <h5 class="mb-0" id="cirStudentName"></h5>
+                    <small class="text-muted">
+                        <span id="cirStudentId"></span> ·
+                        <span id="cirStudentGrade"></span>
+                    </small>
+                </div>
             </div>
-            <div class="card-body">
-                <form method="POST" id="checkoutForm">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <div class="row g-4">
-                        <!-- Book Search -->
-                        <div class="col-md-6">
-                            <h6 class="mb-2" style="color:var(--br-info)">
-                                <i class="bi bi-book"></i> Libro
-                            </h6>
-                            <div class="position-relative">
-                                <input type="text" id="bookSearch" class="form-control"
-                                       placeholder="Buscar por título, autoría ou código..."
-                                       autocomplete="off">
-                                <input type="hidden" name="book_id" id="bookId">
-                                <div id="bookResults" class="autocomplete-results"></div>
-                            </div>
-                            <div id="bookSelected" class="mt-2 d-none">
-                                <div class="checkout-selected book-selected">
-                                    <div>
-                                        <strong id="bookTitle"></strong><br>
-                                        <small id="bookAuthor" class="text-muted"></small>
-                                        <span id="bookAvail" class="badge bg-success ms-2"></span>
-                                    </div>
-                                    <button type="button" class="btn btn-sm btn-icon btn-outline-danger" onclick="clearBook()">
-                                        <i class="bi bi-x-lg"></i>
-                                    </button>
-                                </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge" id="cirLoanBadge"></span>
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        onclick="clearStudentFull()">
+                    <i class="bi bi-arrow-left"></i> Cambiar
+                </button>
+            </div>
+        </div>
+
+        <!-- Active Loans (Returns) -->
+        <div class="circ-section" id="activeLoansSection">
+            <div class="circ-section-title">
+                <i class="bi bi-book"></i> Libros en préstamo
+                <span class="badge bg-secondary ms-1" id="activeLoanCount">0</span>
+            </div>
+            <div id="activeLoansList" class="circ-loans-list">
+                <div class="circ-empty text-muted">
+                    <i class="bi bi-check-circle"></i> Sen préstamos activos
+                </div>
+            </div>
+        </div>
+
+        <!-- Returned books (shown after AJAX return) -->
+        <div class="circ-section d-none" id="returnedSection">
+            <div class="circ-section-title text-success">
+                <i class="bi bi-check-circle-fill"></i> Devueltos hoxe
+            </div>
+            <div id="returnedList" class="circ-returned-list"></div>
+        </div>
+
+        <!-- ─── New Loan Section ────────────────────────── -->
+        <div class="circ-section">
+            <div class="circ-section-title">
+                <i class="bi bi-plus-circle"></i> Prestar libro
+            </div>
+            <form method="POST" id="checkoutForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="student_id" id="formStudentId">
+                <input type="hidden" name="book_id" id="formBookId">
+
+                <div class="circ-book-search" id="bookSearchContainer">
+                    <div class="circ-search-box circ-search-box-sm">
+                        <div class="circ-search-icon"><i class="bi bi-book"></i></div>
+                        <input type="text" id="bookSearchInput" class="circ-search-input"
+                               placeholder="Buscar libro por título, autoría ou código..."
+                               autocomplete="off">
+                    </div>
+                    <div id="bookSuggestions" class="circ-suggestions"></div>
+                </div>
+
+                <!-- Selected Book Card -->
+                <div id="bookSelectedCard" class="d-none">
+                    <div class="circ-selected-book">
+                        <div class="circ-selected-book-info">
+                            <span class="cdu-badge me-2" id="bookCduBadge"></span>
+                            <div>
+                                <strong id="selBookTitle"></strong><br>
+                                <small class="text-muted" id="selBookAuthor"></small>
                             </div>
                         </div>
-
-                        <!-- Student Search -->
-                        <div class="col-md-6">
-                            <h6 class="mb-2" style="color:var(--br-success)">
-                                <i class="bi bi-person-fill"></i> Alumno
-                            </h6>
-                            <div class="position-relative">
-                                <input type="text" id="studentSearch" class="form-control"
-                                       placeholder="Buscar por nome ou nº lector..."
-                                       autocomplete="off">
-                                <input type="hidden" name="student_id" id="studentId">
-                                <div id="studentResults" class="autocomplete-results"></div>
-                            </div>
-                            <div id="studentSelected" class="mt-2 d-none">
-                                <div class="checkout-selected student-selected">
-                                    <div>
-                                        <strong id="studentName"></strong><br>
-                                        <small class="text-muted">
-                                            <span id="studentNia"></span> —
-                                            <span id="studentGrade"></span>
-                                        </small>
-                                        <span id="studentLoans" class="badge ms-2"></span>
-                                    </div>
-                                    <button type="button" class="btn btn-sm btn-icon btn-outline-danger" onclick="clearStudent()">
-                                        <i class="bi bi-x-lg"></i>
-                                    </button>
-                                </div>
-                            </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-success" id="selBookAvail"></span>
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-icon"
+                                    onclick="clearBookSelection()">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
                         </div>
+                    </div>
+                </div>
 
-                        <!-- Dates -->
-                        <div class="col-md-4">
-                            <label class="form-label"><i class="bi bi-calendar-event"></i> Data de recollida</label>
-                            <input type="date" name="borrowed_date" id="borrowedDate" class="form-control"
+                <!-- Dates & Submit -->
+                <div id="loanDatesSection" class="d-none">
+                    <div class="circ-dates">
+                        <div class="circ-date-field">
+                            <label><i class="bi bi-calendar-event"></i> Recollida</label>
+                            <input type="date" name="borrowed_date" id="borrowedDate"
+                                   class="form-control form-control-sm"
                                    value="{{ default_borrowed.strftime('%Y-%m-%d') }}">
-                            <div class="form-text">Día que o alumno leva o libro.</div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label"><i class="bi bi-calendar-check"></i> Data límite devolución</label>
-                            <input type="date" name="due_date" id="dueDate" class="form-control"
+                        <div class="circ-date-field">
+                            <label><i class="bi bi-calendar-check"></i> Límite</label>
+                            <input type="date" name="due_date" id="dueDate"
+                                   class="form-control form-control-sm"
                                    value="{{ default_due.strftime('%Y-%m-%d') }}">
-                            <div class="form-text">Podes cambiala se necesitas.</div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Notas (opcional)</label>
-                            <input type="text" name="notes" class="form-control"
-                                   placeholder="Observacións...">
+                        <div class="circ-date-field">
+                            <label>Notas</label>
+                            <input type="text" name="notes" class="form-control form-control-sm"
+                                   placeholder="Opcional...">
                         </div>
                     </div>
+                    <button type="submit" class="btn btn-primary btn-lg w-100 mt-3" id="submitLoanBtn">
+                        <i class="bi bi-check-circle-fill"></i> Rexistrar Préstamo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
-                    <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
-                            <i class="bi bi-check-circle-fill"></i> Rexistrar Préstamo
-                        </button>
-                        <a href="{{ url_for('loan_list') }}" class="btn btn-outline-secondary">Cancelar</a>
-                    </div>
-                </form>
-            </div>
+<!-- Toast for AJAX feedback -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:1080">
+    <div id="cirToast" class="toast align-items-center text-white border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="cirToastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                    data-bs-dismiss="toast"></button>
         </div>
     </div>
 </div>
@@ -107,141 +152,293 @@
 
 {% block scripts %}
 <script>
-// ── Autocomplete for Books ──────────────────────────────────────
-let bookDebounce;
-const bookSearch = document.getElementById('bookSearch');
-const bookResults = document.getElementById('bookResults');
-
-bookSearch.addEventListener('input', function() {
-    clearTimeout(bookDebounce);
-    const q = this.value.trim();
-    if (q.length < 2) { bookResults.innerHTML = ''; return; }
-    bookDebounce = setTimeout(() => {
-        fetch(`/api/books/search?q=${encodeURIComponent(q)}`)
-            .then(r => r.json())
-            .then(books => {
-                bookResults.innerHTML = books.map(b => `
-                    <div class="autocomplete-item ${!b.is_available ? 'text-muted' : ''}"
-                         onclick="selectBook(${b.id}, '${escapeHtml(b.title)}', '${escapeHtml(b.author)}', ${b.available}, ${b.is_available})">
-                        <strong>${escapeHtml(b.title)}</strong>
-                        <br><small>${escapeHtml(b.author)} ${b.isbn ? '— ' + b.isbn : ''}</small>
-                        ${b.cdu ? '<span class=\"cdu-badge cdu-' + b.cdu + ' ms-1\" style=\"font-size:0.65rem\">' + b.cdu + '</span>' : ''}
-                        <span class="badge ${b.is_available ? 'bg-success' : 'bg-danger'} float-end">
-                            ${b.available} disp.
-                        </span>
-                    </div>
-                `).join('');
-            });
-    }, 300);
-});
-
-function selectBook(id, title, author, avail, isAvailable) {
-    if (!isAvailable) return;
-    document.getElementById('bookId').value = id;
-    document.getElementById('bookTitle').textContent = title;
-    document.getElementById('bookAuthor').textContent = author;
-    document.getElementById('bookAvail').textContent = avail + ' dispoñible(s)';
-    document.getElementById('bookSelected').classList.remove('d-none');
-    bookSearch.classList.add('d-none');
-    bookResults.innerHTML = '';
-    checkReady();
-}
-
-function clearBook() {
-    document.getElementById('bookId').value = '';
-    document.getElementById('bookSelected').classList.add('d-none');
-    bookSearch.classList.remove('d-none');
-    bookSearch.value = '';
-    bookSearch.focus();
-    checkReady();
-}
-
-// ── Autocomplete for Students ───────────────────────────────────
-let studentDebounce;
-const studentSearch = document.getElementById('studentSearch');
-const studentResults = document.getElementById('studentResults');
-
-studentSearch.addEventListener('input', function() {
-    clearTimeout(studentDebounce);
-    const q = this.value.trim();
-    if (q.length < 2) { studentResults.innerHTML = ''; return; }
-    studentDebounce = setTimeout(() => {
-        fetch(`/api/students/search?q=${encodeURIComponent(q)}`)
-            .then(r => r.json())
-            .then(students => {
-                studentResults.innerHTML = students.map(s => `
-                    <div class="autocomplete-item ${!s.can_borrow ? 'text-muted' : ''}"
-                         onclick="selectStudent(${s.id}, '${escapeHtml(s.full_name)}', '${escapeHtml(s.student_id)}', '${escapeHtml(s.grade)}', ${s.active_loans}, ${s.max_loans}, ${s.can_borrow})">
-                        <strong>${escapeHtml(s.full_name)}</strong>
-                        <br><small>${s.student_id} — ${s.grade || ''} ${s.group || ''}</small>
-                        <span class="badge ${s.can_borrow ? 'bg-info' : 'bg-danger'} float-end">
-                            ${s.active_loans}/${s.max_loans}
-                        </span>
-                    </div>
-                `).join('');
-            });
-    }, 300);
-});
-
-function selectStudent(id, name, nia, grade, activeLoans, maxLoans, canBorrow) {
-    if (!canBorrow) return;
-    document.getElementById('studentId').value = id;
-    document.getElementById('studentName').textContent = name;
-    document.getElementById('studentNia').textContent = nia;
-    document.getElementById('studentGrade').textContent = grade;
-    const badge = document.getElementById('studentLoans');
-    badge.textContent = activeLoans + '/' + maxLoans + ' préstamos';
-    badge.className = 'badge ms-2 ' + (activeLoans < maxLoans ? 'bg-info' : 'bg-danger');
-    document.getElementById('studentSelected').classList.remove('d-none');
-    studentSearch.classList.add('d-none');
-    studentResults.innerHTML = '';
-    checkReady();
-}
-
-function clearStudent() {
-    document.getElementById('studentId').value = '';
-    document.getElementById('studentSelected').classList.add('d-none');
-    studentSearch.classList.remove('d-none');
-    studentSearch.value = '';
-    studentSearch.focus();
-    checkReady();
-}
-
-// ── Helpers ──────────────────────────────────────────────────────
-function checkReady() {
-    const ready = document.getElementById('bookId').value && document.getElementById('studentId').value;
-    document.getElementById('submitBtn').disabled = !ready;
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML.replace(/'/g, "\\'");
-}
-
-document.addEventListener('click', function(e) {
-    if (!bookSearch.contains(e.target) && !bookResults.contains(e.target)) bookResults.innerHTML = '';
-    if (!studentSearch.contains(e.target) && !studentResults.contains(e.target)) studentResults.innerHTML = '';
-});
-
-// Pre-fill from URL params
-const params = new URLSearchParams(window.location.search);
-if (params.get('book')) {
-    fetch(`/api/books/search?q=${params.get('book')}`)
-        .then(r => r.json())
-        .then(books => { if (books.length) selectBook(books[0].id, books[0].title, books[0].author, books[0].available, books[0].is_available); });
-}
-
-// Auto-calculate due date when borrowed date changes
-const borrowedInput = document.getElementById('borrowedDate');
-const dueInput = document.getElementById('dueDate');
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
 const loanDays = {{ config.DEFAULT_LOAN_DAYS }};
-borrowedInput.addEventListener('change', function() {
+let selectedStudentId = null;
+let selectedBookId = null;
+
+// ── Toast helper ────────────────────────────────────────────────
+function showToast(msg, type) {
+    const toast = document.getElementById('cirToast');
+    const body = document.getElementById('cirToastBody');
+    body.textContent = msg;
+    toast.className = 'toast align-items-center text-white border-0 bg-' + (type || 'success');
+    new bootstrap.Toast(toast, {delay: 3500}).show();
+}
+
+// ── Student Search ──────────────────────────────────────────────
+const studentInput = document.getElementById('studentSearchInput');
+const studentSuggestions = document.getElementById('studentSuggestions');
+const studentClearBtn = document.getElementById('studentClearBtn');
+let studentTimer;
+
+studentInput.addEventListener('input', function() {
+    clearTimeout(studentTimer);
+    const q = this.value.trim();
+    studentClearBtn.classList.toggle('d-none', q.length === 0);
+    if (q.length < 1) { studentSuggestions.innerHTML = ''; return; }
+    studentTimer = setTimeout(() => {
+        fetch('/api/students/search?q=' + encodeURIComponent(q))
+            .then(r => r.json())
+            .then(renderStudentSuggestions);
+    }, 200);
+});
+
+function renderStudentSuggestions(students) {
+    if (!students.length) {
+        studentSuggestions.innerHTML = '<div class="circ-suggestion-empty">Non se atoparon alumnos</div>';
+        return;
+    }
+    studentSuggestions.innerHTML = students.map(s => `
+        <div class="circ-suggestion ${!s.can_borrow ? 'circ-suggestion-disabled' : ''}"
+             onclick="${s.can_borrow ? `selectStudent(${s.id})` : ''}">
+            <div class="circ-suggestion-main">
+                <strong>${esc(s.full_name)}</strong>
+                <small class="text-muted ms-2">${esc(s.student_id)} · ${esc(s.grade)}</small>
+            </div>
+            <span class="badge ${s.can_borrow ? 'bg-info' : 'bg-danger'} circ-suggestion-badge">
+                ${s.active_loans}/${s.max_loans}
+            </span>
+        </div>
+    `).join('');
+}
+
+function selectStudent(id) {
+    fetch('/api/students/' + id)
+        .then(r => r.json())
+        .then(s => {
+            selectedStudentId = s.id;
+            document.getElementById('formStudentId').value = s.id;
+            document.getElementById('cirStudentName').textContent = s.full_name;
+            document.getElementById('cirStudentId').textContent = 'Nº ' + s.student_id;
+            document.getElementById('cirStudentGrade').textContent = s.grade;
+            const initials = (s.first_name?.[0] || '') + (s.last_name?.[0] || '');
+            document.getElementById('cirAvatar').textContent = initials.toUpperCase();
+            const badge = document.getElementById('cirLoanBadge');
+            badge.textContent = s.active_loans + '/' + s.max_loans + ' préstamos';
+            badge.className = 'badge ' + (s.can_borrow ? 'bg-info' : 'bg-danger');
+
+            document.getElementById('stepStudent').classList.add('d-none');
+            document.getElementById('studentPanel').classList.remove('d-none');
+            studentSuggestions.innerHTML = '';
+            loadActiveLoans(s.id);
+            document.getElementById('bookSearchInput').focus();
+        });
+}
+
+function clearStudentFull() {
+    selectedStudentId = null;
+    selectedBookId = null;
+    document.getElementById('formStudentId').value = '';
+    document.getElementById('formBookId').value = '';
+    document.getElementById('stepStudent').classList.remove('d-none');
+    document.getElementById('studentPanel').classList.add('d-none');
+    document.getElementById('returnedSection').classList.add('d-none');
+    document.getElementById('returnedList').innerHTML = '';
+    studentInput.value = '';
+    studentClearBtn.classList.add('d-none');
+    studentInput.focus();
+    clearBookSelection();
+}
+
+// ── Active Loans (AJAX return) ──────────────────────────────────
+function loadActiveLoans(studentId) {
+    fetch('/api/students/' + studentId + '/loans')
+        .then(r => r.json())
+        .then(loans => {
+            const container = document.getElementById('activeLoansList');
+            document.getElementById('activeLoanCount').textContent = loans.length;
+            if (!loans.length) {
+                container.innerHTML = '<div class="circ-empty text-muted"><i class="bi bi-check-circle"></i> Sen préstamos activos</div>';
+                return;
+            }
+            container.innerHTML = loans.map(l => `
+                <div class="circ-loan-item ${l.is_overdue ? 'circ-loan-overdue' : ''}" id="loan-${l.id}">
+                    <div class="circ-loan-info">
+                        <strong>${esc(l.book_title)}</strong>
+                        <small class="text-muted">${esc(l.book_author)}</small>
+                    </div>
+                    <div class="circ-loan-meta">
+                        ${l.is_overdue
+                            ? '<span class="badge bg-warning text-dark">' + l.days_overdue + 'd fóra</span>'
+                            : '<small class="text-muted">Límite: ' + l.due_date + '</small>'}
+                    </div>
+                    <button type="button" class="btn btn-sm btn-return"
+                            onclick="returnLoan(${l.id}, this)">
+                        <i class="bi bi-box-arrow-in-down"></i> Devolver
+                    </button>
+                </div>
+            `).join('');
+        });
+}
+
+function returnLoan(loanId, btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    fetch('/api/loans/' + loanId + '/return', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            const item = document.getElementById('loan-' + loanId);
+            item.classList.add('circ-loan-returned');
+            setTimeout(() => {
+                item.remove();
+                // Update count
+                const remaining = document.querySelectorAll('.circ-loan-item:not(.circ-loan-returned)');
+                document.getElementById('activeLoanCount').textContent = remaining.length;
+                if (!remaining.length) {
+                    document.getElementById('activeLoansList').innerHTML =
+                        '<div class="circ-empty text-muted"><i class="bi bi-check-circle"></i> Sen préstamos activos</div>';
+                }
+                // Update loan badge
+                const badge = document.getElementById('cirLoanBadge');
+                const parts = badge.textContent.match(/(\d+)\/(\d+)/);
+                if (parts) {
+                    const newCount = Math.max(0, parseInt(parts[1]) - 1);
+                    badge.textContent = newCount + '/' + parts[2] + ' préstamos';
+                    badge.className = 'badge ' + (newCount < parseInt(parts[2]) ? 'bg-info' : 'bg-danger');
+                }
+            }, 300);
+
+            // Add to returned list
+            const retSection = document.getElementById('returnedSection');
+            retSection.classList.remove('d-none');
+            const retList = document.getElementById('returnedList');
+            const rateUrl = '/rate/' + data.book_id + '/' + data.student_id;
+            retList.innerHTML += `
+                <div class="circ-returned-item">
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                    <span>${esc(data.book_title)}</span>
+                    ${!data.has_rating ? `<a href="${rateUrl}" class="btn btn-sm btn-outline-warning ms-auto"><i class="bi bi-star"></i> Valorar</a>` : '<span class="ms-auto text-muted"><i class="bi bi-star-fill text-warning"></i> Valorado</span>'}
+                </div>
+            `;
+            showToast('Libro devuelto: ' + data.book_title, 'success');
+        } else {
+            showToast(data.error || 'Error', 'danger');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-box-arrow-in-down"></i> Devolver';
+        }
+    })
+    .catch(() => {
+        showToast('Error de conexión', 'danger');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-box-arrow-in-down"></i> Devolver';
+    });
+}
+
+// ── Book Search ─────────────────────────────────────────────────
+const bookInput = document.getElementById('bookSearchInput');
+const bookSuggestions = document.getElementById('bookSuggestions');
+let bookTimer;
+
+bookInput.addEventListener('input', function() {
+    clearTimeout(bookTimer);
+    const q = this.value.trim();
+    if (q.length < 1) { bookSuggestions.innerHTML = ''; return; }
+    bookTimer = setTimeout(() => {
+        fetch('/api/books/search?q=' + encodeURIComponent(q))
+            .then(r => r.json())
+            .then(renderBookSuggestions);
+    }, 200);
+});
+
+function renderBookSuggestions(books) {
+    if (!books.length) {
+        bookSuggestions.innerHTML = '<div class="circ-suggestion-empty">Non se atoparon libros</div>';
+        return;
+    }
+    bookSuggestions.innerHTML = books.map(b => `
+        <div class="circ-suggestion ${!b.is_available ? 'circ-suggestion-disabled' : ''}"
+             onclick="${b.is_available ? `selectBook(${b.id}, '${esc(b.title)}', '${esc(b.author)}', ${b.available}, '${b.cdu}')` : ''}">
+            <div class="circ-suggestion-main">
+                <strong>${esc(b.title)}</strong>
+                <small class="text-muted ms-1">${esc(b.author)} ${b.isbn ? '· ' + b.isbn : ''}</small>
+            </div>
+            <span class="badge ${b.is_available ? 'bg-success' : 'bg-danger'} circ-suggestion-badge">
+                ${b.available} disp.
+            </span>
+        </div>
+    `).join('');
+}
+
+function selectBook(id, title, author, avail, cdu) {
+    selectedBookId = id;
+    document.getElementById('formBookId').value = id;
+    document.getElementById('selBookTitle').textContent = title;
+    document.getElementById('selBookAuthor').textContent = author;
+    document.getElementById('selBookAvail').textContent = avail + ' dispoñible(s)';
+    const cduBadge = document.getElementById('bookCduBadge');
+    if (cdu) {
+        cduBadge.className = 'cdu-badge cdu-' + cdu + ' me-2';
+        cduBadge.textContent = cdu;
+        cduBadge.style.display = '';
+    } else {
+        cduBadge.style.display = 'none';
+    }
+    document.getElementById('bookSearchContainer').classList.add('d-none');
+    document.getElementById('bookSelectedCard').classList.remove('d-none');
+    document.getElementById('loanDatesSection').classList.remove('d-none');
+    bookSuggestions.innerHTML = '';
+}
+
+function clearBookSelection() {
+    selectedBookId = null;
+    document.getElementById('formBookId').value = '';
+    document.getElementById('bookSearchContainer').classList.remove('d-none');
+    document.getElementById('bookSelectedCard').classList.add('d-none');
+    document.getElementById('loanDatesSection').classList.add('d-none');
+    bookInput.value = '';
+    bookInput.focus();
+}
+
+// ── Close suggestions on outside click ──────────────────────────
+document.addEventListener('click', function(e) {
+    if (!studentInput.contains(e.target) && !studentSuggestions.contains(e.target))
+        studentSuggestions.innerHTML = '';
+    if (!bookInput.contains(e.target) && !bookSuggestions.contains(e.target))
+        bookSuggestions.innerHTML = '';
+});
+
+// ── Auto-calculate due date ─────────────────────────────────────
+document.getElementById('borrowedDate').addEventListener('change', function() {
     const d = new Date(this.value);
     if (!isNaN(d.getTime())) {
         d.setDate(d.getDate() + loanDays);
-        dueInput.value = d.toISOString().slice(0, 10);
+        document.getElementById('dueDate').value = d.toISOString().slice(0, 10);
     }
 });
+
+// ── Pre-fill from URL params ────────────────────────────────────
+(function() {
+    const params = new URLSearchParams(window.location.search);
+    const bookId = params.get('book_id') || params.get('book');
+    const studentId = params.get('student_id') || params.get('student');
+    if (studentId) {
+        const sid = parseInt(studentId);
+        if (sid) selectStudent(sid);
+    }
+    if (bookId) {
+        const bid = parseInt(bookId);
+        if (bid) {
+            fetch('/api/books/' + bid)
+                .then(r => r.json())
+                .then(b => {
+                    if (b.id && b.is_available)
+                        selectBook(b.id, b.title, b.author, b.available, b.cdu);
+                });
+        }
+    }
+})();
+
+// ── Helpers ─────────────────────────────────────────────────────
+function esc(text) {
+    if (!text) return '';
+    const d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML.replace(/'/g, "\\'");
+}
 </script>
 {% endblock %}

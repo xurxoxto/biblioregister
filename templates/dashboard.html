@@ -60,17 +60,17 @@
     <div class="col-sm-6 col-lg-3">
         <a href="{{ url_for('loan_checkout') }}" class="action-tile action-tile-prestamo">
             <div class="action-tile-icon">
-                <i class="bi bi-plus-circle-fill"></i>
+                <i class="bi bi-arrow-repeat"></i>
             </div>
             <div class="action-tile-body">
-                <span class="action-tile-title">Novo Préstamo</span>
-                <span class="action-tile-desc">Rexistrar un préstamo novo</span>
+                <span class="action-tile-title">Circulación</span>
+                <span class="action-tile-desc">Préstamos e devolucións</span>
             </div>
             <i class="bi bi-arrow-right action-tile-arrow"></i>
         </a>
     </div>
     <div class="col-sm-6 col-lg-3">
-        <a href="{{ url_for('loan_list', status='active') }}" class="action-tile action-tile-devolucion">
+        <a href="{{ url_for('loan_checkout') }}" class="action-tile action-tile-devolucion">
             <div class="action-tile-icon">
                 <i class="bi bi-box-arrow-in-down"></i>
             </div>
@@ -175,6 +175,7 @@
                                 <td class="text-end">
                                     <form method="POST" action="{{ url_for('loan_return', loan_id=loan.id) }}" class="d-inline">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="next" value="{{ url_for('dashboard') }}">
                                         <button class="btn btn-sm btn-return" title="Devolver">
                                             <i class="bi bi-box-arrow-in-down"></i> Devolver
                                         </button>

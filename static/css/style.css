@@ -20,8 +20,8 @@
     --br-text: #2c3e50;
     --br-text-muted: #7f8c8d;
     --br-border: #e0e4e8;
-    --br-shadow: 0 2px 12px rgba(44,62,107,0.08);
-    --br-shadow-lg: 0 8px 30px rgba(44,62,107,0.12);
+    --br-shadow: 0 1px 3px rgba(44,62,107,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --br-shadow-lg: 0 4px 16px rgba(44,62,107,0.08);
     --br-radius: 12px;
     --br-radius-sm: 8px;
     --br-transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -175,7 +175,7 @@ a:hover { color: var(--br-accent); }
     transition: var(--br-transition);
     overflow: hidden;
 }
-.card:hover { box-shadow: var(--br-shadow-lg); }
+.card:hover { box-shadow: var(--br-shadow); }
 
 .card-header {
     background: var(--br-bg-card);
@@ -515,8 +515,10 @@ a:hover { color: var(--br-accent); }
 /* ── Autocomplete ───────────────────────────────────────────────── */
 .autocomplete-results {
     position: absolute; z-index: 1050;
-    width: 100%; max-height: 320px;
+    width: 100%; max-height: 400px;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     background: var(--br-bg-card);
     border: 1px solid var(--br-border); border-top: none;
     border-radius: 0 0 var(--br-radius-sm) var(--br-radius-sm);
@@ -524,11 +526,14 @@ a:hover { color: var(--br-accent); }
 }
 .autocomplete-results:empty { display: none; }
 .autocomplete-item {
-    padding: 0.55rem 0.8rem; cursor: pointer;
+    padding: 0.6rem 0.85rem; cursor: pointer;
     border-bottom: 1px solid rgba(0,0,0,0.04);
     transition: background 0.15s;
+    -webkit-user-select: none;
+    user-select: none;
 }
 .autocomplete-item:hover { background: rgba(44,62,107,0.05); }
+.autocomplete-item:active { background: rgba(44,62,107,0.1); }
 .autocomplete-item:last-child { border-bottom: none; }
 .autocomplete-item.text-muted { cursor: not-allowed; opacity: 0.5; }
 
@@ -721,3 +726,324 @@ a:hover { color: var(--br-accent); }
 .sidebar::-webkit-scrollbar { width: 4px; }
 .sidebar::-webkit-scrollbar-track { background: transparent; }
 .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Circulation Page — Unified Checkout/Return
+   ═══════════════════════════════════════════════════════════════════ */
+
+.circulation-page {
+    max-width: 760px;
+    margin: 0 auto;
+}
+
+/* ── Search Box ────────────────────────────────────────────────── */
+.circ-search-box {
+    display: flex;
+    align-items: center;
+    background: var(--br-bg-card);
+    border: 2px solid var(--br-border);
+    border-radius: var(--br-radius);
+    padding: 0 1rem;
+    transition: var(--br-transition);
+    box-shadow: var(--br-shadow);
+}
+.circ-search-box:focus-within {
+    border-color: var(--br-primary);
+    box-shadow: 0 0 0 4px rgba(44,62,107,0.1);
+}
+.circ-search-box-sm {
+    border-width: 1.5px;
+    padding: 0 0.8rem;
+}
+.circ-search-icon {
+    font-size: 1.15rem;
+    color: var(--br-text-muted);
+    margin-right: 0.65rem;
+    flex-shrink: 0;
+}
+.circ-search-input {
+    flex: 1;
+    border: none;
+    background: none;
+    padding: 0.85rem 0;
+    font-size: 1.05rem;
+    outline: none;
+    color: var(--br-text);
+    font-weight: 500;
+}
+.circ-search-box-sm .circ-search-input {
+    padding: 0.65rem 0;
+    font-size: 0.95rem;
+}
+.circ-search-input::placeholder {
+    color: var(--br-text-muted);
+    font-weight: 400;
+}
+.circ-search-clear {
+    background: none;
+    border: none;
+    color: var(--br-text-muted);
+    cursor: pointer;
+    padding: 0.25rem;
+    font-size: 1rem;
+    border-radius: 50%;
+    transition: var(--br-transition);
+}
+.circ-search-clear:hover {
+    background: rgba(0,0,0,0.06);
+    color: var(--br-danger);
+}
+
+/* ── Suggestions Dropdown ──────────────────────────────────────── */
+.circ-suggestions {
+    position: relative;
+    z-index: 1050;
+    max-height: 380px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    background: var(--br-bg-card);
+    border-radius: 0 0 var(--br-radius) var(--br-radius);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    margin-top: -2px;
+}
+.circ-suggestions:empty {
+    display: none;
+}
+.circ-suggestion {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.7rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    transition: background 0.12s;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.circ-suggestion:hover {
+    background: rgba(44,62,107,0.04);
+}
+.circ-suggestion:active {
+    background: rgba(44,62,107,0.08);
+}
+.circ-suggestion:last-child {
+    border-bottom: none;
+}
+.circ-suggestion-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.circ-suggestion-disabled:hover {
+    background: none;
+}
+.circ-suggestion-main {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+.circ-suggestion-main strong {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.circ-suggestion-badge {
+    flex-shrink: 0;
+    margin-left: 0.5rem;
+}
+.circ-suggestion-empty {
+    padding: 1rem;
+    text-align: center;
+    color: var(--br-text-muted);
+    font-size: 0.88rem;
+}
+
+/* ── Student Header ────────────────────────────────────────────── */
+.circ-student-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--br-bg-card);
+    border: 1px solid var(--br-border);
+    border-radius: var(--br-radius);
+    padding: 1rem 1.15rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--br-shadow);
+}
+.circ-student-info {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+}
+.circ-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #fff;
+    background: linear-gradient(135deg, var(--br-primary), var(--br-primary-light));
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(44,62,107,0.2);
+}
+
+/* ── Sections ──────────────────────────────────────────────────── */
+.circ-section {
+    background: var(--br-bg-card);
+    border: 1px solid var(--br-border);
+    border-radius: var(--br-radius);
+    padding: 1rem 1.15rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--br-shadow);
+}
+.circ-section-title {
+    font-weight: 700;
+    font-size: 0.88rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--br-text);
+}
+.circ-section-title i {
+    color: var(--br-accent);
+}
+
+/* ── Loan Items ────────────────────────────────────────────────── */
+.circ-loans-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.circ-loan-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    background: rgba(0,0,0,0.015);
+    border-radius: var(--br-radius-sm);
+    border: 1px solid rgba(0,0,0,0.04);
+    transition: all 0.3s ease;
+}
+.circ-loan-item.circ-loan-overdue {
+    background: rgba(243,156,18,0.06);
+    border-color: rgba(243,156,18,0.15);
+}
+.circ-loan-item.circ-loan-returned {
+    opacity: 0;
+    transform: translateX(30px);
+    height: 0;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+}
+.circ-loan-info {
+    flex: 1;
+    min-width: 0;
+}
+.circ-loan-info strong {
+    display: block;
+    font-size: 0.92rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.circ-loan-info small {
+    font-size: 0.76rem;
+}
+.circ-loan-meta {
+    flex-shrink: 0;
+    text-align: right;
+}
+.circ-empty {
+    text-align: center;
+    padding: 1rem;
+    font-size: 0.88rem;
+}
+.circ-empty i {
+    font-size: 1.3rem;
+    display: block;
+    margin-bottom: 0.3rem;
+    opacity: 0.4;
+}
+
+/* ── Returned Items ────────────────────────────────────────────── */
+.circ-returned-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.circ-returned-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(39,174,96,0.04);
+    border-radius: var(--br-radius-sm);
+    font-size: 0.88rem;
+}
+
+/* ── Selected Book Card ────────────────────────────────────────── */
+.circ-selected-book {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 0.9rem;
+    background: rgba(52,152,219,0.04);
+    border: 1.5px solid rgba(52,152,219,0.15);
+    border-radius: var(--br-radius-sm);
+    margin-bottom: 0.75rem;
+}
+.circ-selected-book-info {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+}
+
+/* ── Dates Row ─────────────────────────────────────────────────── */
+.circ-dates {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+.circ-date-field {
+    flex: 1;
+    min-width: 140px;
+}
+.circ-date-field label {
+    display: block;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--br-text-muted);
+    margin-bottom: 0.2rem;
+}
+
+/* ── Responsive Circulation ────────────────────────────────────── */
+@media (max-width: 575.98px) {
+    .circ-student-header {
+        flex-direction: column;
+        gap: 0.75rem;
+        text-align: center;
+    }
+    .circ-student-info {
+        flex-direction: column;
+    }
+    .circ-loan-item {
+        flex-wrap: wrap;
+    }
+    .circ-loan-meta {
+        text-align: left;
+    }
+    .circ-dates {
+        flex-direction: column;
+    }
+    .circ-selected-book {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}

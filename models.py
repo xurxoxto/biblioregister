@@ -534,7 +534,8 @@ class Student:
                         if ql in (s.first_name or "").lower()
                         or ql in (s.last_name or "").lower()
                         or ql in (s.student_id or "").lower()
-                        or ql in (s.email or "").lower()]
+                        or ql in (s.email or "").lower()
+                        or ql in s.full_name.lower()]
         if grade:
             students = [s for s in students if s.grade == grade]
         if group:
