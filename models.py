@@ -101,6 +101,19 @@ def _to_date(value):
     return None
 
 
+def _safe_dt(value):
+    """Ensure a datetime is a plain Python datetime (not a Firestore
+    DatetimeWithNanoseconds) so it can always be serialised by any
+    version of google-cloud-firestore without the _nanosecond bug."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return datetime(value.year, value.month, value.day,
+                        value.hour, value.minute, value.second,
+                        value.microsecond)
+    return value
+
+
 # ─── Pagination (template-compatible) ──────────────────────────
 
 class Pagination:
@@ -193,7 +206,7 @@ class User(UserMixin):
         return dict(
             username=self.username, password_hash=self.password_hash,
             display_name=self.display_name, is_admin=self.is_admin,
-            is_active_user=self.is_active_user, created_at=self.created_at,
+            is_active_user=self.is_active_user, created_at=_safe_dt(self.created_at),
         )
 
     def save(self):
@@ -331,7 +344,7 @@ class Book:
             category=self.category, location=self.location,
             copies_total=self.copies_total, description=self.description,
             language=self.language,
-            created_at=self.created_at, updated_at=self.updated_at,
+            created_at=_safe_dt(self.created_at), updated_at=_safe_dt(self.updated_at),
         )
 
     def save(self):
@@ -479,7 +492,7 @@ class Student:
             grade=self.grade, group_name=self.group_name,
             max_loans=self.max_loans, is_active=self.is_active,
             notes=self.notes,
-            created_at=self.created_at, updated_at=self.updated_at,
+            created_at=_safe_dt(self.created_at), updated_at=_safe_dt(self.updated_at),
         )
 
     def save(self):
@@ -625,11 +638,11 @@ class Loan:
     def _to_dict(self):
         return dict(
             book_id=self.book_id, student_id=self.student_id,
-            borrowed_at=self.borrowed_at,
+            borrowed_at=_safe_dt(self.borrowed_at),
             due_date=self.due_date.isoformat() if self.due_date else None,
-            returned_at=self.returned_at,
+            returned_at=_safe_dt(self.returned_at),
             renewals=self.renewals, notes=self.notes,
-            created_at=self.created_at,
+            created_at=_safe_dt(self.created_at),
         )
 
     def save(self):
@@ -736,7 +749,7 @@ class Rating:
     def _to_dict(self):
         return dict(
             book_id=self.book_id, student_id=self.student_id,
-            stars=self.stars, created_at=self.created_at,
+            stars=self.stars, created_at=_safe_dt(self.created_at),
         )
 
     def save(self):
