@@ -85,7 +85,7 @@ if gcloud scheduler jobs describe biblioregister-keepalive \
         --location="${REGION}" \
         --schedule="*/10 8-15 * * 1-5" \
         --time-zone="Europe/Madrid" \
-        --uri="${CLOUD_RUN_URL}/healthz" \
+        --uri="${CLOUD_RUN_URL}/ping" \
         --http-method=GET \
         --attempt-deadline=30s \
         --quiet
@@ -94,7 +94,7 @@ else
         --location="${REGION}" \
         --schedule="*/10 8-15 * * 1-5" \
         --time-zone="Europe/Madrid" \
-        --uri="${CLOUD_RUN_URL}/healthz" \
+        --uri="${CLOUD_RUN_URL}/ping" \
         --http-method=GET \
         --attempt-deadline=30s \
         --quiet

@@ -83,8 +83,8 @@ def create_app(config_class=Config):
     # _create_default_admin()
 
     # ── Health check (Cloud Scheduler / uptime monitors) ───────
-    @app.route("/healthz")
-    def healthz():
+    @app.route("/ping")
+    def ping():
         return "ok", 200
 
     # ── Require login ─────────────────────────────────────────────
@@ -98,7 +98,7 @@ def create_app(config_class=Config):
             _init_settings()
             _create_default_admin()
 
-        allowed = ("login", "static", "healthz")
+        allowed = ("login", "static", "ping")
         if request.endpoint and request.endpoint not in allowed:
             if not current_user.is_authenticated:
                 return redirect(url_for("login"))
