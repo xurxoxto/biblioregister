@@ -352,12 +352,79 @@ a:hover { color: var(--br-accent); }
     transform: translateX(0);
 }
 
-.action-tile-prestamo { background: linear-gradient(135deg, #2c3e6b, #4a6fa5); }
-.action-tile-devolucion { background: linear-gradient(135deg, #27ae60, #2ecc71); }
 .action-tile-alumno { background: linear-gradient(135deg, #0097a7, #26c6da); }
 .action-tile-libro { background: linear-gradient(135deg, #e8a838, #f0c26e); color: #3e2c06; }
 .action-tile-libro .action-tile-icon { background: rgba(62,44,6,0.15); }
 .action-tile-libro .action-tile-desc { opacity: 0.7; }
+.action-tile-reports { background: linear-gradient(135deg, #6c5ce7, #a29bfe); }
+
+/* ── Hero Action (Circulación) ──────────────────────────────────── */
+.action-hero {
+    display: flex; align-items: center; gap: 1.25rem;
+    padding: 1.5rem 1.75rem;
+    border-radius: var(--br-radius);
+    background: linear-gradient(135deg, #2c3e6b 0%, #4a6fa5 50%, #3d5291 100%);
+    color: #fff;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 6px 24px rgba(44,62,107,0.25);
+}
+.action-hero:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px rgba(44,62,107,0.35);
+    color: #fff; text-decoration: none;
+}
+.action-hero:active { transform: translateY(-1px); }
+.action-hero::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+    pointer-events: none;
+}
+.action-hero-icon {
+    width: 64px; height: 64px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.18);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem;
+    flex-shrink: 0;
+    backdrop-filter: blur(4px);
+    transition: var(--br-transition);
+}
+.action-hero:hover .action-hero-icon {
+    background: rgba(255,255,255,0.28);
+    transform: scale(1.06);
+}
+.action-hero-body { flex: 1; min-width: 0; }
+.action-hero-title {
+    display: block;
+    font-size: 1.35rem; font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+.action-hero-desc {
+    display: block;
+    font-size: 0.85rem;
+    opacity: 0.75;
+    font-weight: 400;
+    margin-top: 0.2rem;
+}
+.action-hero-arrow {
+    font-size: 1.5rem; opacity: 0.5;
+    transition: all 0.25s ease;
+    flex-shrink: 0;
+}
+.action-hero:hover .action-hero-arrow {
+    opacity: 1;
+    transform: translateX(4px);
+}
+@media (max-width: 576px) {
+    .action-hero { padding: 1.2rem 1.25rem; gap: 1rem; }
+    .action-hero-icon { width: 52px; height: 52px; font-size: 1.5rem; border-radius: 14px; }
+    .action-hero-title { font-size: 1.15rem; }
+    .action-hero-desc { font-size: 0.78rem; }
+}
 
 /* ── Return / Renew Buttons ─────────────────────────────────────── */
 .btn-return {

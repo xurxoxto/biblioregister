@@ -55,33 +55,21 @@
     </div>
 </div>
 
-<!-- ── Hero Quick Actions ─────────────────────────────────── -->
+<!-- ── Hero: Circulación ───────────────────────────────── -->
+<a href="{{ url_for('loan_checkout') }}" class="action-hero mb-4">
+    <div class="action-hero-icon">
+        <i class="bi bi-arrow-left-right"></i>
+    </div>
+    <div class="action-hero-body">
+        <span class="action-hero-title">Circulación</span>
+        <span class="action-hero-desc">Préstamos e devolucións — busca un alumno para empezar</span>
+    </div>
+    <i class="bi bi-chevron-right action-hero-arrow"></i>
+</a>
+
+<!-- ── Secondary Actions ──────────────────────────────────── -->
 <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-lg-3">
-        <a href="{{ url_for('loan_checkout') }}" class="action-tile action-tile-prestamo">
-            <div class="action-tile-icon">
-                <i class="bi bi-arrow-repeat"></i>
-            </div>
-            <div class="action-tile-body">
-                <span class="action-tile-title">Circulación</span>
-                <span class="action-tile-desc">Préstamos e devolucións</span>
-            </div>
-            <i class="bi bi-arrow-right action-tile-arrow"></i>
-        </a>
-    </div>
-    <div class="col-sm-6 col-lg-3">
-        <a href="{{ url_for('loan_checkout') }}" class="action-tile action-tile-devolucion">
-            <div class="action-tile-icon">
-                <i class="bi bi-box-arrow-in-down"></i>
-            </div>
-            <div class="action-tile-body">
-                <span class="action-tile-title">Devolver Libro</span>
-                <span class="action-tile-desc">Rexistrar unha devolución</span>
-            </div>
-            <i class="bi bi-arrow-right action-tile-arrow"></i>
-        </a>
-    </div>
-    <div class="col-sm-6 col-lg-3">
+    <div class="col-sm-6 col-lg-4">
         <a href="{{ url_for('student_new') }}" class="action-tile action-tile-alumno">
             <div class="action-tile-icon">
                 <i class="bi bi-person-plus-fill"></i>
@@ -93,7 +81,7 @@
             <i class="bi bi-arrow-right action-tile-arrow"></i>
         </a>
     </div>
-    <div class="col-sm-6 col-lg-3">
+    <div class="col-sm-6 col-lg-4">
         <a href="{{ url_for('book_new') }}" class="action-tile action-tile-libro">
             <div class="action-tile-icon">
                 <i class="bi bi-journal-plus"></i>
@@ -101,6 +89,18 @@
             <div class="action-tile-body">
                 <span class="action-tile-title">Rexistrar Libro</span>
                 <span class="action-tile-desc">Engadir ao catálogo</span>
+            </div>
+            <i class="bi bi-arrow-right action-tile-arrow"></i>
+        </a>
+    </div>
+    <div class="col-sm-6 col-lg-4">
+        <a href="{{ url_for('report_index') }}" class="action-tile action-tile-reports">
+            <div class="action-tile-icon">
+                <i class="bi bi-bar-chart-line-fill"></i>
+            </div>
+            <div class="action-tile-body">
+                <span class="action-tile-title">Informes</span>
+                <span class="action-tile-desc">Estatísticas e exportación</span>
             </div>
             <i class="bi bi-arrow-right action-tile-arrow"></i>
         </a>
