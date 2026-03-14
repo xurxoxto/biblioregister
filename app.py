@@ -92,6 +92,9 @@ def create_app(config_class=Config):
 
     @app.before_request
     def require_login():
+        from flask import session
+        session.permanent = True
+
         # Lazy init: run Firestore queries on first request, not at startup
         if not _initialized["done"]:
             _initialized["done"] = True
@@ -121,7 +124,7 @@ def create_app(config_class=Config):
                 if not user.is_active:
                     flash("Esta cuenta está desactivada.", "danger")
                     return render_template("auth/login.html", form=form)
-                login_user(user, remember=True)
+                login_user(user)
                 flash(f"Bienvenido/a, {user.display_name or user.username}.", "success")
                 return redirect(request.args.get("next") or url_for("dashboard"))
             flash("Usuario o contraseña incorrectos.", "danger")
