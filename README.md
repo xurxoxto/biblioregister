@@ -42,6 +42,21 @@ python app.py
 
 La aplicación estará disponible en **http://localhost:5000**
 
+## 🔌 API para Senda
+
+API de solo lectura para consultar la situación e historial de préstamos de un alumno.
+Define `SENDA_API_KEY` en el entorno y envíala en cada petición
+(`Authorization: Bearer <clave>` o `X-API-Key: <clave>`).
+
+```
+GET /api/senda/students/<id>/loans             # por ID interno
+GET /api/senda/students/code/<student_id>/loans  # por código del alumno
+    ?status=all|active|overdue|returned        # filtro opcional (por defecto all)
+```
+
+Devuelve `student`, `summary` (activos, vencidos, devueltos, límite, `can_borrow`)
+y `loans` (más recientes primero, con `status`: `active`, `overdue` o `returned`).
+
 ## 📁 Estructura
 
 ```
