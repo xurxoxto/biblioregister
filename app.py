@@ -3,7 +3,9 @@ BiblioRegister – School Library Management System
 Backend powered by Google Cloud Firestore.
 """
 
+import csv
 import hmac
+import io
 from datetime import datetime, date, timedelta
 from collections import Counter
 from functools import wraps
@@ -16,6 +18,7 @@ from flask import (
     flash,
     jsonify,
     abort,
+    Response,
 )
 from flask_wtf.csrf import CSRFProtect
 from flask_login import (
@@ -883,6 +886,83 @@ def create_app(config_class=Config):
             return _senda_student_loans_response(Student(id=int(d.id), **d.to_dict()))
         return jsonify({"error": "Alumno no encontrado"}), 404
 
+    SENDA_MAX_CODES = 200
+    FIRESTORE_IN_LIMIT = 30
+
+    def _chunks(items, size):
+        for i in range(0, len(items), size):
+            yield items[i:i + size]
+
+    def _csv_safe(value):
+        text = str(value or "")
+        return "'" + text if text[:1] in ("=", "+", "-", "@") else text
+
+    @app.route("/api/senda/students")
+    @senda_api_key_required
+    def senda_students():
+        """Student roster, to link SENDA students with their school code.
+
+        `?format=csv` returns student_id,first_name,last_name,grade,group,is_active.
+        """
+        students = sorted(
+            (Student(id=int(d.id), **d.to_dict())
+             for d in get_db().collection("students").stream()),
+            key=lambda s: (s.last_name.lower(), s.first_name.lower()),
+        )
+        rows = [
+            {
+                "student_id": s.student_id,
+                "first_name": s.first_name,
+                "last_name": s.last_name,
+                "grade": s.grade or "",
+                "group": s.group_name or "",
+                "is_active": s.is_active,
+            }
+            for s in students
+        ]
+        if request.args.get("format") != "csv":
+            return jsonify({"students": rows})
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(["student_id", "first_name", "last_name", "grade", "group", "is_active"])
+        for row in rows:
+            writer.writerow([_csv_safe(row[key]) for key in row])
+        return Response(buffer.getvalue(), mimetype="text/csv")
+
+    @app.route("/api/senda/loans/overdue")
+    @senda_api_key_required
+    def senda_overdue_loans():
+        """Overdue loans of the students whose school codes are in `?codes=a,b,c`."""
+        codes = list(dict.fromkeys(
+            c.strip() for c in request.args.get("codes", "").split(",") if c.strip()
+        ))
+        if not codes or len(codes) > SENDA_MAX_CODES:
+            return jsonify({"error": f"codes debe tener entre 1 y {SENDA_MAX_CODES} códigos"}), 400
+
+        db = get_db()
+        students = {}
+        for chunk in _chunks(codes, FIRESTORE_IN_LIMIT):
+            for d in db.collection("students").where("student_id", "in", chunk).stream():
+                students[int(d.id)] = Student(id=int(d.id), **d.to_dict())
+
+        overdue = []
+        for chunk in _chunks(list(students), FIRESTORE_IN_LIMIT):
+            for d in db.collection("loans").where("student_id", "in", chunk).stream():
+                loan = Loan(id=int(d.id), **d.to_dict())
+                if loan.is_overdue:
+                    overdue.append(loan)
+        Loan.preload(overdue)
+
+        by_code = {}
+        for loan in sorted(overdue, key=lambda l: l.due_date):
+            code = students[loan.student_id].student_id
+            by_code.setdefault(code, []).append(_senda_loan_json(loan))
+        found = {s.student_id for s in students.values()}
+        return jsonify({
+            "overdue": [{"student_code": code, "loans": loans} for code, loans in by_code.items()],
+            "unknown_codes": [c for c in codes if c not in found],
+        })
+
     # ──────────────────────────────────────────────────────────────
     #  SETTINGS
     # ──────────────────────────────────────────────────────────────
@@ -1032,14 +1112,24 @@ def create_app(config_class=Config):
     # ──────────────────────────────────────────────────────────────
     #  DATABASE MANAGEMENT
     # ──────────────────────────────────────────────────────────────
-    @app.route("/reset-db", methods=["GET"])
+    def admin_required(view):
+        @wraps(view)
+        def wrapper(*args, **kwargs):
+            if not current_user.is_admin:
+                abort(403)
+            return view(*args, **kwargs)
+        return wrapper
+
+    @app.route("/reset-db", methods=["POST"])
+    @admin_required
     def reset_db():
         drop_all()
         _create_default_admin()
         flash("Base de datos reseteada correctamente.", "warning")
         return redirect(url_for("settings"))
 
-    @app.route("/reimport-data", methods=["GET"])
+    @app.route("/reimport-data", methods=["POST"])
+    @admin_required
     def reimport_data():
         import subprocess, sys
 

@@ -78,16 +78,20 @@
                     Accións irreversibles. Asegúrate de saber o que fas.
                 </p>
                 <div class="d-flex flex-wrap gap-2">
-                    <a href="{{ url_for('reset_db') }}"
-                       class="btn btn-outline-danger btn-sm"
-                       onclick="return confirm('ATENCIÓN: Isto borrará TODOS os datos. ¿Continuar?');">
-                        <i class="bi bi-trash3"></i> Resetear Base de Datos
-                    </a>
-                    <a href="{{ url_for('reimport_data') }}"
-                       class="btn btn-outline-warning btn-sm"
-                       onclick="return confirm('Isto reimportará todos os datos desde o ficheiro orixinal. ¿Continuar?');">
-                        <i class="bi bi-arrow-clockwise"></i> Reimportar Datos
-                    </a>
+                    <form method="post" action="{{ url_for('reset_db') }}"
+                          onsubmit="return confirm('ATENCIÓN: Isto borrará TODOS os datos. ¿Continuar?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-trash3"></i> Resetear Base de Datos
+                        </button>
+                    </form>
+                    <form method="post" action="{{ url_for('reimport_data') }}"
+                          onsubmit="return confirm('Isto reimportará todos os datos desde o ficheiro orixinal. ¿Continuar?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-warning btn-sm">
+                            <i class="bi bi-arrow-clockwise"></i> Reimportar Datos
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

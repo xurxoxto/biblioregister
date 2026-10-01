@@ -57,6 +57,25 @@ GET /api/senda/students/code/<student_id>/loans  # por código del alumno
 Devuelve `student`, `summary` (activos, vencidos, devueltos, límite, `can_borrow`)
 y `loans` (más recientes primero, con `status`: `active`, `overdue` o `returned`).
 
+```
+GET /api/senda/students[?format=csv]           # listado de alumnado (student_id, nombre, curso, grupo)
+GET /api/senda/loans/overdue?codes=A-1,A-2     # préstamos vencidos de esos códigos (máx. 200)
+```
+
+`/api/senda/students?format=csv` genera el CSV que usa el script `backfill:library-codes` de Senda
+para enlazar alumnado por nombre. Contiene datos personales: no lo subas a ningún repo.
+
+`/api/senda/loans/overdue` devuelve `overdue` (por `student_code`, con sus préstamos vencidos) y
+`unknown_codes` (códigos que no existen aquí). Pensado para el aviso de retrasos por aula en Senda.
+
+## 🧪 Tests
+
+```bash
+python -m unittest discover -s tests -t .
+```
+
+Usan un Firestore en memoria (`tests/fake_firestore.py`): no necesitan credenciales.
+
 ## 📁 Estructura
 
 ```
