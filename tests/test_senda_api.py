@@ -114,6 +114,17 @@ class DangerousRoutesTest(unittest.TestCase):
         self.assertEqual(self.client.post("/reset-db").status_code, 403)
         self.assertTrue(self.db.store["books"])
 
+    def test_danger_zone_is_only_shown_to_admins(self):
+        self.db.collection("users").document("2").set(
+            {"username": "boss", "password_hash": "x", "is_admin": True, "is_active_user": True}
+        )
+        self.login("1")
+        self.assertNotIn("Resetear Base de Datos", self.client.get("/settings").get_data(as_text=True))
+        self.login("2")
+        page = self.client.get("/settings").get_data(as_text=True)
+        self.assertIn("Resetear Base de Datos", page)
+        self.assertIn('name="csrf_token"', page)
+
     def test_admin_can_reset_the_database(self):
         self.db.collection("users").document("2").set(
             {"username": "boss", "password_hash": "x", "is_admin": True, "is_active_user": True}

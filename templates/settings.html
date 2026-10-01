@@ -68,6 +68,7 @@
             </div>
         </div>
 
+        {% if current_user.is_admin %}
         <!-- Danger Zone -->
         <div class="card shadow-sm mt-4" style="border-left: 3px solid var(--br-danger);">
             <div class="card-header text-danger">
@@ -95,6 +96,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- User Management -->
         <div class="card shadow-sm mt-4">
