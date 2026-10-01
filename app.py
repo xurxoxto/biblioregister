@@ -3,8 +3,10 @@ BiblioRegister – School Library Management System
 Backend powered by Google Cloud Firestore.
 """
 
+import hmac
 from datetime import datetime, date, timedelta
 from collections import Counter
+from functools import wraps
 from flask import (
     Flask,
     render_template,
@@ -102,7 +104,8 @@ def create_app(config_class=Config):
             _create_default_admin()
 
         allowed = ("login", "static", "ping")
-        if request.endpoint and request.endpoint not in allowed:
+        if (request.endpoint and request.endpoint not in allowed
+                and not request.endpoint.startswith("senda_")):
             if not current_user.is_authenticated:
                 return redirect(url_for("login"))
 
@@ -778,6 +781,107 @@ def create_app(config_class=Config):
             "can_borrow": student.can_borrow(max_global),
             "max_loans": student.effective_max_loans,
         })
+
+    # ──────────────────────────────────────────────────────────────
+    #  API – Senda integration (read-only, API-key protected)
+    # ──────────────────────────────────────────────────────────────
+    def senda_api_key_required(view):
+        """Authenticate external callers with the SENDA_API_KEY secret."""
+        @wraps(view)
+        def wrapper(*args, **kwargs):
+            expected = app.config.get("SENDA_API_KEY")
+            if not expected:
+                return jsonify({"error": "API de Senda no configurada"}), 503
+            header = request.headers.get("Authorization", "")
+            provided = (header[7:] if header.startswith("Bearer ")
+                        else request.headers.get("X-API-Key", ""))
+            if not hmac.compare_digest(provided.encode(), expected.encode()):
+                return jsonify({"error": "No autorizado"}), 401
+            return view(*args, **kwargs)
+        return wrapper
+
+    def _iso(value):
+        return value.isoformat() if value else None
+
+    def _senda_loan_json(loan):
+        book = loan.book
+        return {
+            "id": loan.id,
+            "status": loan.status,
+            "book": {
+                "id": loan.book_id,
+                "title": book.title if book else None,
+                "author": book.author if book else None,
+                "isbn": (book.isbn if book else None) or None,
+                "cdu": (book.cdu if book else None) or None,
+            },
+            "borrowed_at": _iso(loan.borrowed_at),
+            "due_date": _iso(loan.due_date),
+            "returned_at": _iso(loan.returned_at),
+            "renewals": loan.renewals,
+            "days_overdue": loan.days_overdue,
+        }
+
+    def _senda_student_loans_response(student):
+        status = request.args.get("status", "all")
+        if status not in ("all", "active", "overdue", "returned"):
+            return jsonify({"error": "status debe ser all, active, overdue o returned"}), 400
+
+        loans = [
+            Loan(id=int(d.id), **d.to_dict())
+            for d in get_db().collection("loans")
+            .where("student_id", "==", student.id).stream()
+        ]
+        loans.sort(key=lambda l: l.borrowed_at or datetime.min, reverse=True)
+        Loan.preload(loans)
+
+        active = [l for l in loans if l.is_active]
+        overdue = [l for l in active if l.is_overdue]
+        limit = student.effective_max_loans
+        selected = {
+            "all": loans,
+            "active": active,
+            "overdue": overdue,
+            "returned": [l for l in loans if not l.is_active],
+        }[status]
+
+        return jsonify({
+            "student": {
+                "id": student.id,
+                "student_id": student.student_id,
+                "full_name": student.full_name,
+                "grade": student.grade or "",
+                "group": student.group_name or "",
+                "is_active": student.is_active,
+            },
+            "summary": {
+                "active_loans": len(active),
+                "overdue_loans": len(overdue),
+                "returned_loans": len(loans) - len(active),
+                "total_loans": len(loans),
+                "max_loans": limit,
+                "can_borrow": student.is_active and len(active) < limit,
+            },
+            "loans": [_senda_loan_json(l) for l in selected],
+        })
+
+    @app.route("/api/senda/students/<int:student_id>/loans")
+    @senda_api_key_required
+    def senda_student_loans(student_id):
+        """Loan situation + history of a student, by internal ID."""
+        student = Student.get(student_id)
+        if not student:
+            return jsonify({"error": "Alumno no encontrado"}), 404
+        return _senda_student_loans_response(student)
+
+    @app.route("/api/senda/students/code/<path:code>/loans")
+    @senda_api_key_required
+    def senda_student_loans_by_code(code):
+        """Same as above, looking the student up by school code (student_id)."""
+        for d in (get_db().collection("students")
+                  .where("student_id", "==", code).limit(1).stream()):
+            return _senda_student_loans_response(Student(id=int(d.id), **d.to_dict()))
+        return jsonify({"error": "Alumno no encontrado"}), 404
 
     # ──────────────────────────────────────────────────────────────
     #  SETTINGS

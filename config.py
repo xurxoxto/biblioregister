@@ -26,6 +26,9 @@ class Config:
     ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
     ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "biblio2025")
 
+    # Shared secret for the read-only Senda API (/api/senda/*); disabled if unset
+    SENDA_API_KEY = os.environ.get("SENDA_API_KEY")
+
     # Firebase / Firestore
     FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "biblioutes")
     FIREBASE_CREDENTIALS = os.environ.get("FIREBASE_CREDENTIALS")  # path to service account JSON
