@@ -240,7 +240,7 @@ def create_app(config_class=Config):
                                     just_created=1))
         return render_template("books/form.html", form=form, editing=False)
 
-    @app.route("/books/<int:book_id>")
+    @app.route("/books/<book_id>")
     def book_detail(book_id):
         book = Book.get_or_404(book_id)
         # Load all loans for this book
@@ -265,7 +265,7 @@ def create_app(config_class=Config):
             book_ratings=book_ratings,
         )
 
-    @app.route("/books/<int:book_id>/edit", methods=["GET", "POST"])
+    @app.route("/books/<book_id>/edit", methods=["GET", "POST"])
     def book_edit(book_id):
         book = Book.get_or_404(book_id)
         form = BookForm(obj=book)
@@ -276,7 +276,7 @@ def create_app(config_class=Config):
             return redirect(url_for("book_detail", book_id=book.id))
         return render_template("books/form.html", form=form, editing=True, book=book)
 
-    @app.route("/books/<int:book_id>/delete", methods=["POST"])
+    @app.route("/books/<book_id>/delete", methods=["POST"])
     def book_delete(book_id):
         book = Book.get_or_404(book_id)
         has_active = any(
@@ -339,7 +339,7 @@ def create_app(config_class=Config):
             return redirect(url_for("student_detail", student_id=student.id))
         return render_template("students/form.html", form=form, editing=False)
 
-    @app.route("/students/<int:student_id>")
+    @app.route("/students/<student_id>")
     def student_detail(student_id):
         student = Student.get_or_404(student_id)
         all_student_loans = [
@@ -365,7 +365,7 @@ def create_app(config_class=Config):
             student_ratings=student_ratings,
         )
 
-    @app.route("/students/<int:student_id>/edit", methods=["GET", "POST"])
+    @app.route("/students/<student_id>/edit", methods=["GET", "POST"])
     def student_edit(student_id):
         student = Student.get_or_404(student_id)
         form = StudentForm(obj=student)
@@ -380,7 +380,7 @@ def create_app(config_class=Config):
             "students/form.html", form=form, editing=True, student=student
         )
 
-    @app.route("/students/<int:student_id>/delete", methods=["POST"])
+    @app.route("/students/<student_id>/delete", methods=["POST"])
     def student_delete(student_id):
         student = Student.get_or_404(student_id)
         has_active = any(
@@ -524,7 +524,7 @@ def create_app(config_class=Config):
             default_due=default_due,
         )
 
-    @app.route("/loans/<int:loan_id>/return", methods=["POST"])
+    @app.route("/loans/<loan_id>/return", methods=["POST"])
     def loan_return(loan_id):
         loan = Loan.get_or_404(loan_id)
         if loan.returned_at:
@@ -557,7 +557,7 @@ def create_app(config_class=Config):
             )
         return redirect(request.form.get("next", url_for("loan_list")))
 
-    @app.route("/loans/<int:loan_id>/renew", methods=["POST"])
+    @app.route("/loans/<loan_id>/renew", methods=["POST"])
     def loan_renew(loan_id):
         loan = Loan.get_or_404(loan_id)
         max_renewals = app.config["MAX_RENEWALS"]
@@ -580,7 +580,7 @@ def create_app(config_class=Config):
             )
         return redirect(request.form.get("next", url_for("loan_list")))
 
-    @app.route("/loans/<int:loan_id>/update-due", methods=["POST"])
+    @app.route("/loans/<loan_id>/update-due", methods=["POST"])
     def loan_update_due(loan_id):
         loan = Loan.get_or_404(loan_id)
         new_due_str = request.form.get("due_date", "")
@@ -599,7 +599,7 @@ def create_app(config_class=Config):
     # ──────────────────────────────────────────────────────────────
     #  RATINGS
     # ──────────────────────────────────────────────────────────────
-    @app.route("/rate/<int:book_id>/<int:student_id>", methods=["GET", "POST"])
+    @app.route("/rate/<book_id>/<student_id>", methods=["GET", "POST"])
     def rate_book(book_id, student_id):
         book = Book.get_or_404(book_id)
         student = Student.get_or_404(student_id)
@@ -629,7 +629,7 @@ def create_app(config_class=Config):
 
         return render_template("loans/rate.html", book=book, student=student)
 
-    @app.route("/rate/<int:book_id>/<int:student_id>/quick", methods=["POST"])
+    @app.route("/rate/<book_id>/<student_id>/quick", methods=["POST"])
     def rate_book_quick(book_id, student_id):
         book = Book.get_or_404(book_id)
         student = Student.get_or_404(student_id)
@@ -692,7 +692,7 @@ def create_app(config_class=Config):
     # ──────────────────────────────────────────────────────────────
     #  API – AJAX returns & data endpoints
     # ──────────────────────────────────────────────────────────────
-    @app.route("/api/loans/<int:loan_id>/return", methods=["POST"])
+    @app.route("/api/loans/<loan_id>/return", methods=["POST"])
     def api_loan_return(loan_id):
         """AJAX endpoint to return a book without page reload."""
         loan = Loan.get(loan_id)
@@ -716,7 +716,7 @@ def create_app(config_class=Config):
             "has_rating": has_rating,
         })
 
-    @app.route("/api/students/<int:student_id>/loans")
+    @app.route("/api/students/<student_id>/loans")
     def api_student_loans(student_id):
         """Get a student's active loans (for the circulation page)."""
         student = Student.get(student_id)
@@ -749,7 +749,7 @@ def create_app(config_class=Config):
                             reverse=True)
         ])
 
-    @app.route("/api/books/<int:book_id>")
+    @app.route("/api/books/<book_id>")
     def api_book_get(book_id):
         """Get a single book by ID."""
         book = Book.get(book_id)
@@ -765,7 +765,7 @@ def create_app(config_class=Config):
             "is_available": book.is_available,
         })
 
-    @app.route("/api/students/<int:student_id>")
+    @app.route("/api/students/<student_id>")
     def api_student_get(student_id):
         """Get a single student by ID."""
         student = Student.get(student_id)
@@ -868,7 +868,7 @@ def create_app(config_class=Config):
             "loans": [_senda_loan_json(l) for l in selected],
         })
 
-    @app.route("/api/senda/students/<int:student_id>/loans")
+    @app.route("/api/senda/students/<student_id>/loans")
     @senda_api_key_required
     def senda_student_loans(student_id):
         """Loan situation + history of a student, by internal ID."""
@@ -1070,7 +1070,7 @@ def create_app(config_class=Config):
                 return redirect(url_for("user_list"))
         return render_template("users/form.html", form=form)
 
-    @app.route("/users/<int:user_id>/toggle", methods=["POST"])
+    @app.route("/users/<user_id>/toggle", methods=["POST"])
     def user_toggle(user_id):
         if not current_user.is_admin:
             abort(403)
@@ -1084,7 +1084,7 @@ def create_app(config_class=Config):
             flash(f"Usuario '{user.username}' {state}.", "success")
         return redirect(url_for("user_list"))
 
-    @app.route("/users/<int:user_id>/delete", methods=["POST"])
+    @app.route("/users/<user_id>/delete", methods=["POST"])
     def user_delete(user_id):
         if not current_user.is_admin:
             abort(403)
