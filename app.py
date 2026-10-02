@@ -905,7 +905,7 @@ def create_app(config_class=Config):
         `?format=csv` returns student_id,first_name,last_name,grade,group,is_active.
         """
         students = sorted(
-            (Student(id=int(d.id), **d.to_dict())
+            (Student(id=d.id, **d.to_dict())
              for d in get_db().collection("students").stream()),
             key=lambda s: (s.last_name.lower(), s.first_name.lower()),
         )
@@ -943,12 +943,12 @@ def create_app(config_class=Config):
         students = {}
         for chunk in _chunks(codes, FIRESTORE_IN_LIMIT):
             for d in db.collection("students").where("student_id", "in", chunk).stream():
-                students[int(d.id)] = Student(id=int(d.id), **d.to_dict())
+                students[d.id] = Student(id=d.id, **d.to_dict())
 
         overdue = []
         for chunk in _chunks(list(students), FIRESTORE_IN_LIMIT):
             for d in db.collection("loans").where("student_id", "in", chunk).stream():
-                loan = Loan(id=int(d.id), **d.to_dict())
+                loan = Loan(id=d.id, **d.to_dict())
                 if loan.is_overdue:
                     overdue.append(loan)
         Loan.preload(overdue)
