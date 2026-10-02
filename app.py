@@ -1151,6 +1151,7 @@ def create_app(config_class=Config):
     #  ADMIN RECOVERY (temporary, remove after use)
     # ──────────────────────────────────────────────────────────────
     @app.route("/recover-admin", methods=["POST"])
+    @csrf.exempt
     def recover_admin():
         """Create a new admin user. Remove this endpoint after use."""
         secret = request.form.get("secret", "")
