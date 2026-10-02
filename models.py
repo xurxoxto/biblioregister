@@ -221,7 +221,7 @@ class User(UserMixin):
     @classmethod
     def get(cls, doc_id):
         d = get_db().collection(cls._COL).document(str(doc_id)).get()
-        return cls(id=int(d.id), **d.to_dict()) if d.exists else None
+        return cls(id=d.id, **d.to_dict()) if d.exists else None
 
     @classmethod
     def get_or_404(cls, doc_id):
@@ -234,13 +234,13 @@ class User(UserMixin):
     def find_by_username(cls, username):
         for d in (get_db().collection(cls._COL)
                   .where("username", "==", username).limit(1).stream()):
-            return cls(id=int(d.id), **d.to_dict())
+            return cls(id=d.id, **d.to_dict())
         return None
 
     @classmethod
     def query_all(cls):
         return sorted(
-            [cls(id=int(d.id), **d.to_dict())
+            [cls(id=d.id, **d.to_dict())
              for d in get_db().collection(cls._COL).stream()],
             key=lambda u: u.username,
         )
@@ -365,7 +365,7 @@ class Book:
         if doc_id is None:
             return None
         d = get_db().collection(cls._COL).document(str(doc_id)).get()
-        return cls(id=int(d.id), **d.to_dict()) if d.exists else None
+        return cls(id=d.id, **d.to_dict()) if d.exists else None
 
     @classmethod
     def get_or_404(cls, doc_id):
@@ -378,7 +378,7 @@ class Book:
     def load_all(cls):
         """All books, sorted by title."""
         return sorted(
-            [cls(id=int(d.id), **d.to_dict())
+            [cls(id=d.id, **d.to_dict())
              for d in get_db().collection(cls._COL).stream()],
             key=lambda b: (b.title or "").lower(),
         )
@@ -515,7 +515,7 @@ class Student:
         if doc_id is None:
             return None
         d = get_db().collection(cls._COL).document(str(doc_id)).get()
-        return cls(id=int(d.id), **d.to_dict()) if d.exists else None
+        return cls(id=d.id, **d.to_dict()) if d.exists else None
 
     @classmethod
     def get_or_404(cls, doc_id):
@@ -528,7 +528,7 @@ class Student:
     def load_all(cls):
         """All students, sorted by last_name, first_name."""
         return sorted(
-            [cls(id=int(d.id), **d.to_dict())
+            [cls(id=d.id, **d.to_dict())
              for d in get_db().collection(cls._COL).stream()],
             key=lambda s: ((s.last_name or "").lower(),
                            (s.first_name or "").lower()),
@@ -660,7 +660,7 @@ class Loan:
         if doc_id is None:
             return None
         d = get_db().collection(cls._COL).document(str(doc_id)).get()
-        return cls(id=int(d.id), **d.to_dict()) if d.exists else None
+        return cls(id=d.id, **d.to_dict()) if d.exists else None
 
     @classmethod
     def get_or_404(cls, doc_id):
@@ -672,7 +672,7 @@ class Loan:
     @classmethod
     def load_all(cls):
         """All loans, newest first."""
-        loans = [cls(id=int(d.id), **d.to_dict())
+        loans = [cls(id=d.id, **d.to_dict())
                  for d in get_db().collection(cls._COL).stream()]
         return sorted(loans,
                       key=lambda l: l.borrowed_at or datetime.min,
@@ -685,7 +685,7 @@ class Loan:
                   .where("book_id", "==", book_id).stream()):
             data = d.to_dict()
             if data.get("student_id") == student_id and data.get("returned_at") is None:
-                return cls(id=int(d.id), **data)
+                return cls(id=d.id, **data)
         return None
 
     @classmethod
@@ -767,13 +767,13 @@ class Rating:
                   .where("book_id", "==", book_id).stream()):
             data = d.to_dict()
             if data.get("student_id") == student_id:
-                return cls(id=int(d.id), **data)
+                return cls(id=d.id, **data)
         return None
 
     @classmethod
     def find_by_book(cls, book_id):
         return sorted(
-            [cls(id=int(d.id), **d.to_dict())
+            [cls(id=d.id, **d.to_dict())
              for d in get_db().collection(cls._COL)
              .where("book_id", "==", book_id).stream()],
             key=lambda r: r.created_at or datetime.min, reverse=True,
@@ -781,7 +781,7 @@ class Rating:
 
     @classmethod
     def find_by_student(cls, student_id):
-        return [cls(id=int(d.id), **d.to_dict())
+        return [cls(id=d.id, **d.to_dict())
                 for d in get_db().collection(cls._COL)
                 .where("student_id", "==", student_id).stream()]
 

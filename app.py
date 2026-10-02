@@ -245,7 +245,7 @@ def create_app(config_class=Config):
         book = Book.get_or_404(book_id)
         # Load all loans for this book
         all_book_loans = [
-            Loan(id=int(d.id), **d.to_dict())
+            Loan(id=d.id, **d.to_dict())
             for d in get_db().collection("loans")
             .where("book_id", "==", book_id).stream()
         ]
@@ -343,7 +343,7 @@ def create_app(config_class=Config):
     def student_detail(student_id):
         student = Student.get_or_404(student_id)
         all_student_loans = [
-            Loan(id=int(d.id), **d.to_dict())
+            Loan(id=d.id, **d.to_dict())
             for d in get_db().collection("loans")
             .where("student_id", "==", student_id).stream()
         ]
@@ -727,7 +727,7 @@ def create_app(config_class=Config):
             .where("student_id", "==", student_id).stream()
         )
         loans = [
-            Loan(id=int(d.id), **d.to_dict())
+            Loan(id=d.id, **d.to_dict())
             for d in loans_docs
             if d.to_dict().get("returned_at") is None
         ]
@@ -831,7 +831,7 @@ def create_app(config_class=Config):
             return jsonify({"error": "status debe ser all, active, overdue o returned"}), 400
 
         loans = [
-            Loan(id=int(d.id), **d.to_dict())
+            Loan(id=d.id, **d.to_dict())
             for d in get_db().collection("loans")
             .where("student_id", "==", student.id).stream()
         ]
@@ -883,7 +883,7 @@ def create_app(config_class=Config):
         """Same as above, looking the student up by school code (student_id)."""
         for d in (get_db().collection("students")
                   .where("student_id", "==", code).limit(1).stream()):
-            return _senda_student_loans_response(Student(id=int(d.id), **d.to_dict()))
+            return _senda_student_loans_response(Student(id=d.id, **d.to_dict()))
         return jsonify({"error": "Alumno no encontrado"}), 404
 
     SENDA_MAX_CODES = 200
