@@ -581,11 +581,8 @@ class Loan:
     def __init__(self, **kw):
         self.id = kw.get("id")
         self.book_id = kw.get("book_id")
-        if self.book_id is not None:
-            self.book_id = int(self.book_id)
+        # book_id and student_id are Firestore document IDs (strings), not integers
         self.student_id = kw.get("student_id")
-        if self.student_id is not None:
-            self.student_id = int(self.student_id)
         self.borrowed_at = _dt(kw.get("borrowed_at")) or datetime.utcnow()
         self.due_date = _to_date(kw.get("due_date"))
         self.returned_at = _dt(kw.get("returned_at"))
@@ -722,11 +719,8 @@ class Rating:
     def __init__(self, **kw):
         self.id = kw.get("id")
         self.book_id = kw.get("book_id")
-        if self.book_id is not None:
-            self.book_id = int(self.book_id)
+        # book_id and student_id are Firestore document IDs (strings), not integers
         self.student_id = kw.get("student_id")
-        if self.student_id is not None:
-            self.student_id = int(self.student_id)
         self.stars = int(kw.get("stars", 0) or 0)
         self.created_at = _dt(kw.get("created_at")) or datetime.utcnow()
         self._book = kw.get("_book")
