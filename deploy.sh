@@ -17,7 +17,7 @@
 # ═══════════════════════════════════════════════════════════════════
 set -euo pipefail
 
-PROJECT_ID="biblioutes"
+PROJECT_ID="biblio3c-83136"
 REGION="europe-southwest1"          # Madrid — lo más cerca de Galicia
 SERVICE_NAME="biblioregister"
 IMAGE="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
@@ -25,6 +25,12 @@ IMAGE="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
 echo ""
 echo "📚 BiblioRegister — Desplegando en Firebase + Cloud Run"
 echo "══════════════════════════════════════════════════════════"
+echo ""
+echo "ℹ️  IMPORTANTE:"
+echo "   • Exportar SENDA_API_KEY antes de desplegar (si quieres mantener la actual)"
+echo "   • Ejemplo: export SENDA_API_KEY='tu-clave-aqui'"
+echo "   • Si no está definida, NO se tocará la variable en Cloud Run"
+echo ""
 
 # ── 1. Asegurar proyecto activo ──────────────────────────────────
 echo ""
@@ -49,6 +55,21 @@ gcloud builds submit --tag "${IMAGE}" .
 # ── 4. Desplegar en Cloud Run ────────────────────────────────────
 echo ""
 echo "🚀 Desplegando en Cloud Run (${REGION})..."
+
+# Construir lista de variables a actualizar (sin reemplazar todas)
+ENV_VARS="FIREBASE_PROJECT_ID=${PROJECT_ID}"
+ENV_VARS="${ENV_VARS},ADMIN_USERNAME=${ADMIN_USERNAME:-admin}"
+ENV_VARS="${ENV_VARS},ADMIN_PASSWORD=${ADMIN_PASSWORD:-biblio2025}"
+ENV_VARS="${ENV_VARS},MAX_LOANS_PER_STUDENT=3"
+ENV_VARS="${ENV_VARS},DEFAULT_LOAN_DAYS=30"
+ENV_VARS="${ENV_VARS},MAX_RENEWALS=2"
+
+# Solo actualizar SENDA_API_KEY si está definida (no reemplazar con vacío)
+if [ -n "${SENDA_API_KEY:-}" ]; then
+    ENV_VARS="${ENV_VARS},SENDA_API_KEY=${SENDA_API_KEY}"
+fi
+
+# Usar --update-env-vars para actualizar solo estas variables, no reemplazar todas
 gcloud run deploy "${SERVICE_NAME}" \
     --image "${IMAGE}" \
     --region "${REGION}" \
@@ -57,13 +78,7 @@ gcloud run deploy "${SERVICE_NAME}" \
     --memory 256Mi \
     --min-instances 0 \
     --max-instances 2 \
-    --set-env-vars "SECRET_KEY=$(openssl rand -hex 32)" \
-    --set-env-vars "FIREBASE_PROJECT_ID=${PROJECT_ID}" \
-    --set-env-vars "ADMIN_USERNAME=${ADMIN_USERNAME:-admin}" \
-    --set-env-vars "ADMIN_PASSWORD=${ADMIN_PASSWORD:-biblio2025}" \
-    --set-env-vars "MAX_LOANS_PER_STUDENT=3" \
-    --set-env-vars "DEFAULT_LOAN_DAYS=30" \
-    --set-env-vars "MAX_RENEWALS=2"
+    --update-env-vars "${ENV_VARS}"
 
 # ── 5. Desplegar Firebase Hosting (proxy → Cloud Run) ───────────
 echo ""
