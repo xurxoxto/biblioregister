@@ -28,6 +28,7 @@ from flask_login import (
     login_required,
     current_user,
 )
+from flask_caching import Cache
 from config import Config
 from models import (
     init_firebase, get_db, drop_all, drop_data, paginate_list,
@@ -41,12 +42,14 @@ from forms import (
 
 csrf = CSRFProtect()
 login_manager = LoginManager()
+cache = Cache(config={'CACHE_TYPE': 'simple'})  # In-memory caching (5MB default)
 
 
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
     csrf.init_app(app)
+    cache.init_app(app)
 
     # Firestore
     init_firebase(app)
@@ -146,6 +149,8 @@ def create_app(config_class=Config):
     #  DASHBOARD
     # ──────────────────────────────────────────────────────────────
     @app.route("/")
+    @login_required
+    @cache.cached(timeout=300)  # Cache dashboard for 5 minutes
     def dashboard():
         total_books = Book.count()
         total_students = Student.count()

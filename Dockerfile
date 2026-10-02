@@ -18,10 +18,14 @@ COPY . .
 ENV PORT=8080
 
 # Run with Gunicorn (production WSGI server)
+# Low-resource config: 1 worker, 2 threads, for small/medium traffic
 CMD exec gunicorn \
     --bind :$PORT \
     --workers 1 \
     --threads 2 \
-    --timeout 120 \
-    --log-level info \
+    --worker-class gthread \
+    --timeout 60 \
+    --access-logfile - \
+    --error-logfile - \
+    --log-level warning \
     "app:create_app()"
