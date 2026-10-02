@@ -46,7 +46,9 @@ La aplicación estará disponible en **http://localhost:5000**
 
 API de solo lectura para consultar la situación e historial de préstamos de un alumno.
 Define `SENDA_API_KEY` en el entorno y envíala en cada petición
-(`Authorization: Bearer <clave>` o `X-API-Key: <clave>`).
+(`X-API-Key: <clave>`, recomendado, o `Authorization: Bearer <clave>`).
+Genera una clave larga con `openssl rand -hex 32`; en Cloud Run se pasa con
+`SENDA_API_KEY=... ./deploy.sh` y en Render se define en el dashboard.
 
 ```
 GET /api/senda/students/<id>/loans             # por ID interno

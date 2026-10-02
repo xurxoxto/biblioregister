@@ -26,6 +26,12 @@ echo ""
 echo "📚 BiblioRegister — Desplegando en Firebase + Cloud Run"
 echo "══════════════════════════════════════════════════════════"
 
+# La API de Senda se desactiva si falta la clave; --set-env-vars sustituye todas
+# las variables, así que hay que pasarla en cada despliegue.
+if [ -z "${SENDA_API_KEY:-}" ]; then
+    echo "⚠️  SENDA_API_KEY no definida: la API de Senda quedará desactivada."
+fi
+
 # ── 1. Asegurar proyecto activo ──────────────────────────────────
 echo ""
 echo "🔧 Configurando proyecto GCP: ${PROJECT_ID}"
@@ -63,7 +69,8 @@ gcloud run deploy "${SERVICE_NAME}" \
     --set-env-vars "ADMIN_PASSWORD=${ADMIN_PASSWORD:-biblio2025}" \
     --set-env-vars "MAX_LOANS_PER_STUDENT=3" \
     --set-env-vars "DEFAULT_LOAN_DAYS=30" \
-    --set-env-vars "MAX_RENEWALS=2"
+    --set-env-vars "MAX_RENEWALS=2" \
+    --set-env-vars "SENDA_API_KEY=${SENDA_API_KEY:-}"
 
 # ── 5. Desplegar Firebase Hosting (proxy → Cloud Run) ───────────
 echo ""

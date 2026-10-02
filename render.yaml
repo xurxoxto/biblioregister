@@ -19,6 +19,8 @@ services:
         value: admin
       - key: ADMIN_PASSWORD
         sync: false                     # set securely in dashboard
+      - key: SENDA_API_KEY
+        sync: false                     # shared secret for Senda; set in dashboard
       - key: MAX_LOANS_PER_STUDENT
         value: "3"
       - key: DEFAULT_LOAN_DAYS
