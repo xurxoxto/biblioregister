@@ -12,7 +12,7 @@ services:
       - key: SECRET_KEY
         generateValue: true             # auto-generate a secure random key
       - key: FIREBASE_PROJECT_ID
-        value: biblioutes
+        value: biblio3c-83136
       - key: FIREBASE_CREDENTIALS_JSON
         sync: false                     # you'll set this manually in dashboard
       - key: ADMIN_USERNAME

@@ -30,5 +30,5 @@ class Config:
     SENDA_API_KEY = os.environ.get("SENDA_API_KEY")
 
     # Firebase / Firestore
-    FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "biblioutes")
+    FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "biblio3c-83136")
     FIREBASE_CREDENTIALS = os.environ.get("FIREBASE_CREDENTIALS")  # path to service account JSON

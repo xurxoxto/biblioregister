@@ -7,7 +7,7 @@
 #    brew install --cask google-cloud-sdk
 #    brew install firebase-cli        # o:  npm install -g firebase-tools
 #    gcloud auth login
-#    gcloud config set project biblioutes
+#    gcloud config set project biblio3c-83136
 #    firebase login
 #
 #  Uso:
@@ -17,7 +17,7 @@
 # ═══════════════════════════════════════════════════════════════════
 set -euo pipefail
 
-PROJECT_ID="biblioutes"
+PROJECT_ID="${PROJECT_ID:-biblio3c-83136}"
 REGION="europe-southwest1"          # Madrid — lo más cerca de Galicia
 SERVICE_NAME="biblioregister"
 IMAGE="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
