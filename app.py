@@ -1147,6 +1147,36 @@ def create_app(config_class=Config):
             flash(f"Erro ao reimportar: {str(e)}", "danger")
         return redirect(url_for("settings"))
 
+    # ──────────────────────────────────────────────────────────────
+    #  ADMIN RECOVERY (temporary, remove after use)
+    # ──────────────────────────────────────────────────────────────
+    @app.route("/recover-admin", methods=["POST"])
+    def recover_admin():
+        """Create a new admin user. Remove this endpoint after use."""
+        secret = request.form.get("secret", "")
+        if secret != "SENDA_INTEGRATION_2026":
+            return jsonify({"error": "Invalid secret"}), 401
+        
+        # Delete old admin if exists
+        for d in get_db().collection("users").where("username", "==", "admin").stream():
+            get_db().collection("users").document(d.id).delete()
+        
+        # Create new admin
+        admin = User(
+            username="admin",
+            email="admin@biblioregister.local",
+            is_admin=True
+        )
+        admin.set_password("biblio2025")
+        admin.save()
+        
+        return jsonify({
+            "success": True,
+            "message": "Admin user created",
+            "username": "admin",
+            "password": "biblio2025"
+        }), 201
+
     return app
 
 
