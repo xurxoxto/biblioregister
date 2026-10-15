@@ -20,6 +20,7 @@ set -euo pipefail
 PROJECT_ID="biblio3c-83136"
 REGION="europe-southwest1"          # Madrid — lo más cerca de Galicia
 SERVICE_NAME="biblioregister"
+HOSTING_SITE="bibliooutes"           # https://bibliooutes.web.app
 IMAGE="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
 
 echo ""
@@ -83,7 +84,8 @@ gcloud run deploy "${SERVICE_NAME}" \
 # ── 5. Desplegar Firebase Hosting (proxy → Cloud Run) ───────────
 echo ""
 echo "🌐 Desplegando Firebase Hosting..."
-firebase deploy --only hosting --project "${PROJECT_ID}"
+firebase hosting:sites:create "${HOSTING_SITE}" --project "${PROJECT_ID}" 2>/dev/null || true
+firebase deploy --only hosting:"${HOSTING_SITE}" --project "${PROJECT_ID}"
 
 # ── 6. Keep-alive con Cloud Scheduler (lunes a viernes, 8–15h) ──
 echo ""
@@ -121,7 +123,7 @@ echo ""
 echo "══════════════════════════════════════════════════════════"
 echo "✅ ¡Desplegue completado!"
 echo ""
-echo "   🔗 Firebase:   https://${PROJECT_ID}.web.app"
+echo "   🔗 Firebase:   https://${HOSTING_SITE}.web.app"
 echo "   🔗 Cloud Run:  ${CLOUD_RUN_URL}"
 echo ""
 echo "══════════════════════════════════════════════════════════"
