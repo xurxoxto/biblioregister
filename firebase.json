@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "bibliooutes",
     "public": "public",
     "ignore": [
       "firebase.json",
